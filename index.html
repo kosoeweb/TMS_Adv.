@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UT - Talent Management System</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <style>
+    body { background-color: #f4f6f9; }
+    .navbar { background: #601a1a !important; }
+    .card { border: none; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .q-preview-box { max-height: 320px; overflow-y: auto; background: #fff; border: 1px solid #dee2e6; border-radius: 6px; padding: 12px; }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar navbar-expand-lg navbar-dark mb-4 shadow-sm">
+    <div class="container-fluid">
+      <a class="navbar-brand fw-bold text-white text-decoration-none d-flex align-items-center" href="#">
+        <img src="logo.png" alt="UT Logo" style="height: 45px; margin-right: 15px; border-radius: 6px;">
+        <div style="line-height: 1.2;">
+          Universal Tractor Co., Ltd.<br>
+          <small style="font-size: 0.8rem; font-weight: 400;">Talent Management System</small>
+        </div>
+      </a>
+      <div class="d-flex align-items-center">
+        <span id="connStatus" class="badge bg-success me-2"><i class="bi bi-wifi"></i> Live</span>
+        <a href="index.html" class="btn btn-light btn-sm mx-1">Directory & Setup</a>
+        <a href="transaction.html" class="btn btn-outline-light btn-sm mx-1">HR Records</a>
+        <a href="dashboard.html" class="btn btn-outline-light btn-sm mx-1">Dashboard</a>
+        <a href="exam.html" class="btn btn-warning btn-sm mx-1 fw-bold text-dark"><i class="bi bi-mortarboard-fill"></i> Exam Portal</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid px-4">
+    <div class="card p-4">
+      <h4 class="mb-4 text-primary fw-bold">Employee Directory & System Setup</h4>
+      <ul class="nav nav-tabs mb-4">
+        <li class="nav-item"><a class="nav-link active fw-bold" data-bs-toggle="tab" href="#createEmp"><i class="bi bi-person-plus"></i> Register Employee</a></li>
+        <li class="nav-item"><a class="nav-link fw-bold" data-bs-toggle="tab" href="#editEmp"><i class="bi bi-pencil-square"></i> Edit Profile</a></li>
+        <li class="nav-item"><a class="nav-link fw-bold" data-bs-toggle="tab" href="#dept"><i class="bi bi-diagram-3"></i> Departments</a></li>
+        <li class="nav-item"><a class="nav-link fw-bold" data-bs-toggle="tab" href="#settings"><i class="bi bi-gear"></i> Job & System Settings</a></li>
+        <li class="nav-item"><a class="nav-link fw-bold text-danger" data-bs-toggle="tab" href="#examSetup"><i class="bi bi-patch-question-fill"></i> Online Exam Setup</a></li>
+      </ul>
+
+      <div class="tab-content">
+        <!-- ၁။ ဝန်ထမ်းအသစ်သွင်းခြင်း (Father Name & NRC No. ထပ်တိုးထားသည်) -->
+        <div class="tab-pane fade show active" id="createEmp">
+          <form id="formCreate" onsubmit="handleEmpSubmit(event, 'create')">
+            <div class="row g-3">
+              <div class="col-md-3"><label class="fw-bold">Employee ID</label><input type="text" class="form-control" name="code" placeholder="e.g. UT-001" required></div>
+              <div class="col-md-3"><label class="fw-bold">Full Name</label><input type="text" class="form-control" name="name" required></div>
+              <div class="col-md-3"><label class="fw-bold text-primary">Father Name (အဘအမည်)</label><input type="text" class="form-control border-primary" name="fatherName" placeholder="e.g. U Aung" required></div>
+              <div class="col-md-3"><label class="fw-bold text-primary">NRC No. (မှတ်ပုံတင်အမှတ်)</label><input type="text" class="form-control border-primary" name="nrc" placeholder="e.g. 12/YaKaNa(N)123456" required></div>
+
+              <div class="col-md-3"><label class="fw-bold text-danger">Login Username</label><input type="text" class="form-control border-danger" name="username" required></div>
+              <div class="col-md-3">
+                <label class="fw-bold text-danger">Login Password</label>
+                <div class="input-group">
+                  <input type="password" class="form-control border-danger" name="password" id="createPass" required>
+                  <button type="button" class="btn btn-outline-secondary" onclick="togglePassField('createPass', this)"><i class="bi bi-eye"></i></button>
+                </div>
+              </div>
+              <div class="col-md-3"><label class="fw-bold">Department</label><select class="form-select dept-dropdown" name="dept" onchange="updateSubAndPos(this, 'create')" required></select></div>
+              <div class="col-md-3"><label class="fw-bold">Sub-Department</label><select class="form-select sub-dept-dropdown" name="subDept"><option value="">Select Dept First</option></select></div>
+
+              <div class="col-md-3"><label class="fw-bold">Position</label><select class="form-select create-position" name="position"><option value="">Select Dept First</option></select></div>
+              <div class="col-md-3"><label class="fw-bold">Profile Photo</label><input type="file" class="form-control" id="photoFile" accept="image/*"></div>
+              <div class="col-md-3"><label class="fw-bold">Phone</label><input type="text" class="form-control" name="phone"></div>
+              <div class="col-md-3"><label class="fw-bold">Email</label><input type="email" class="form-control" name="email"></div>
+
+              <div class="col-md-3"><label class="fw-bold text-primary">SSB ID</label><input type="text" class="form-control border-primary" name="ssbId" placeholder="SSB Number"></div>
+              <div class="col-md-3"><label class="fw-bold text-primary">Tax ID</label><input type="text" class="form-control border-primary" name="taxId" placeholder="Tax Number"></div>
+              <div class="col-md-3"><label class="fw-bold">Bio / Skills</label><textarea class="form-control" name="bio" rows="2" placeholder="Skills, qualifications..."></textarea></div>
+              <div class="col-md-3"><label class="fw-bold">Internal Remarks</label><textarea class="form-control" name="remark" rows="2" placeholder="Additional HR details..."></textarea></div>
+            </div>
+            <button type="submit" class="btn btn-primary mt-3 px-4 fw-bold" id="btnCreate">Register Profile</button>
+          </form>
+        </div>
+
+        <!-- ၂။ ဝန်ထမ်းအချက်အလက် ပြင်ဆင်ခြင်း -->
+        <div class="tab-pane fade" id="editEmp">
+          <form id="formEdit" onsubmit="handleEmpSubmit(event, 'edit')">
+            <div class="row g-3 mb-3 bg-light p-2 rounded">
+              <div class="col-md-4">
+                <label class="fw-bold">Select Employee</label>
+                <select class="form-select border-primary" id="editEmpSelect" name="code" onchange="fetchEmpData()" required></select>
+              </div>
+              <div class="col-md-3 align-self-end" id="statusContainer" style="display:none;">
+                <label class="fw-bold text-dark mb-2">Employment Status</label>
+                <div class="form-check form-switch fs-5">
+                  <input class="form-check-input border-secondary" type="checkbox" id="statusToggle" name="status" checked>
+                  <label class="form-check-label fw-bold text-success" for="statusToggle" id="statusLabel">Active</label>
+                </div>
+              </div>
+            </div>
+
+            <div class="row g-3" id="editFields" style="display:none;">
+              <div class="col-md-3"><label class="fw-bold">Full Name</label><input type="text" class="form-control" name="name" required></div>
+              <div class="col-md-3"><label class="fw-bold text-primary">Father Name (အဘအမည်)</label><input type="text" class="form-control border-primary" name="fatherName" required></div>
+              <div class="col-md-3"><label class="fw-bold text-primary">NRC No. (မှတ်ပုံတင်အမှတ်)</label><input type="text" class="form-control border-primary" name="nrc" required></div>
+              <div class="col-md-3"><label class="fw-bold">Phone</label><input type="text" class="form-control" name="phone"></div>
+
+              <div class="col-md-3"><label class="fw-bold text-danger">Login Username</label><input type="text" class="form-control border-danger" name="username" required></div>
+              <div class="col-md-3">
+                <label class="fw-bold text-danger">Login Password</label>
+                <div class="input-group">
+                  <input type="password" class="form-control border-danger" name="password" id="editPass" required>
+                  <button type="button" class="btn btn-outline-secondary" onclick="togglePassField('editPass', this)"><i class="bi bi-eye"></i></button>
+                </div>
+              </div>
+              <div class="col-md-3"><label class="fw-bold">Department</label><select class="form-select dept-dropdown" name="dept" onchange="updateSubAndPos(this, 'edit')" required></select></div>
+              <div class="col-md-3"><label class="fw-bold">Sub-Department</label><select class="form-select sub-dept-dropdown" name="subDept"></select></div>
+
+              <div class="col-md-3"><label class="fw-bold">Position</label><select class="form-select edit-position" name="position"></select></div>
+              <div class="col-md-3"><label class="fw-bold">Email</label><input type="email" class="form-control" name="email"></div>
+              <div class="col-md-3"><label class="fw-bold text-primary">SSB ID</label><input type="text" class="form-control border-primary" name="ssbId"></div>
+              <div class="col-md-3"><label class="fw-bold text-primary">Tax ID</label><input type="text" class="form-control border-primary" name="taxId"></div>
+
+              <div class="col-md-3 text-center">
+                <label class="fw-bold">Current Photo</label><br>
+                <img id="editEmpThumbnail" src="" style="max-height: 60px; display: none; border-radius: 5px; margin: 0 auto;">
+                <span id="noImageText" class="text-muted small" style="display:none;">No Photo</span>
+              </div>
+              <div class="col-md-3"><label class="fw-bold">Update Photo</label><input type="file" class="form-control" id="editPhotoFile" accept="image/*"></div>
+              <div class="col-md-3"><label class="fw-bold">Bio / Skills</label><textarea class="form-control" name="bio" rows="2"></textarea></div>
+              <div class="col-md-3"><label class="fw-bold">Internal Remarks</label><textarea class="form-control" name="remark" rows="2"></textarea></div>
+
+              <input type="hidden" name="photoUrl" id="existingPhotoUrl">
+              <div class="col-md-12"><button type="submit" class="btn btn-success px-4 fw-bold" id="btnEdit">Update Profile</button></div>
+            </div>
+          </form>
+        </div>
+
+        <!-- ၃။ ဌာနများ သတ်မှတ်ခြင်း -->
+        <div class="tab-pane fade" id="dept">
+          <form id="formDept" onsubmit="submitDeptForm(event)">
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="fw-bold">Main Department</label>
+                <input list="mainDeptList" class="form-control border-primary" name="main" placeholder="e.g., Operations" required>
+                <datalist id="mainDeptList"></datalist>
+              </div>
+              <div class="col-md-4">
+                <label class="fw-bold">Sub-Department</label>
+                <input type="text" class="form-control border-primary" name="sub" placeholder="e.g., Logistics" required>
+              </div>
+              <div class="col-md-4 align-self-end"><button type="submit" class="btn btn-primary w-100">Add Division</button></div>
+            </div>
+          </form>
+        </div>
+
+        <!-- ၄။ ရာထူး၊ System Transaction Type နှင့် Leave ရက်ပေါင်း သတ်မှတ်ခြင်း -->
+        <div class="tab-pane fade" id="settings">
+          <form onsubmit="addSettingPair(event)" class="mb-4 pb-3 border-bottom">
+            <h6 class="fw-bold text-primary mb-3">1. Add Job Position by Department</h6>
+            <div class="row g-3">
+              <div class="col-md-4"><label class="fw-bold">Department</label><select id="pairDept" class="form-select border-primary" required></select></div>
+              <div class="col-md-4"><label class="fw-bold">Job Position</label><input type="text" id="pairPos" class="form-control border-primary" placeholder="e.g. Senior Analyst" required></div>
+              <div class="col-md-4 align-self-end"><button type="submit" class="btn btn-primary w-100">Add Position</button></div>
+            </div>
+          </form>
+
+          <form onsubmit="addTransactionSysType(event)" class="mb-4 pb-3 border-bottom">
+            <h6 class="fw-bold text-success mb-3">2. Add System Type (For HR Transactions)</h6>
+            <div class="row g-3">
+              <div class="col-md-5">
+                <label class="fw-bold">System / Transaction Type Name</label>
+                <input type="text" id="transTypeName" class="form-control border-success" placeholder="e.g. BONUS, KPI REWARD, LATE WARNING, TRAINING" required>
+              </div>
+              <div class="col-md-4">
+                <label class="fw-bold">Score Effect</label>
+                <select id="transTypeEffect" class="form-select border-success">
+                  <option value="+">Add Points (+ Merit)</option>
+                  <option value="-">Deduct Points (- Demerit)</option>
+                  <option value="0">Neutral / Record Only (0)</option>
+                </select>
+              </div>
+              <div class="col-md-3 align-self-end"><button type="submit" class="btn btn-success w-100">Add System Type</button></div>
+            </div>
+          </form>
+
+          <form onsubmit="addLeaveTypeSetting(event)" class="mb-4 pb-3 border-bottom">
+            <h6 class="fw-bold text-warning text-dark mb-3">3. Add Leave Type & Allowed Days</h6>
+            <div class="row g-3">
+              <div class="col-md-5">
+                <label class="fw-bold">Leave Type Name</label>
+                <input type="text" id="leaveTypeName" class="form-control border-warning" placeholder="e.g. Casual Leave, Medical Leave, Earned Leave" required>
+              </div>
+              <div class="col-md-4">
+                <label class="fw-bold">Allowed Days Per Year (ခွင့်ပြုရက်ပေါင်း)</label>
+                <input type="number" id="leaveAllowedDays" class="form-control border-warning" min="1" placeholder="e.g. 10" required>
+              </div>
+              <div class="col-md-3 align-self-end"><button type="submit" class="btn btn-warning fw-bold w-100">Save Leave Type</button></div>
+            </div>
+          </form>
+
+          <form onsubmit="addSystemSetting(event)">
+            <h6 class="fw-bold text-info text-dark mb-3">4. Office GPS & Work Time Settings</h6>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="fw-bold">Setting Category</label>
+                <select id="sysCat" class="form-select border-info" required>
+                  <option value="Office Lat">Office Lat (e.g. 16.8409)</option>
+                  <option value="Office Lng">Office Lng (e.g. 96.1735)</option>
+                  <option value="Geo Radius">Geo Radius in Meters (e.g. 200)</option>
+                  <option value="Work Start">Work Start Time (e.g. 09:00)</option>
+                  <option value="Work End">Work End Time (e.g. 17:00)</option>
+                </select>
+              </div>
+              <div class="col-md-4"><label class="fw-bold">Value</label><input type="text" id="sysVal" class="form-control border-info" required></div>
+              <div class="col-md-4 align-self-end"><button type="submit" class="btn btn-info text-white w-100">Save Office Setting</button></div>
+            </div>
+          </form>
+        </div>
+
+        <!-- ၅။ ONLINE EXAM / TEST SETUP (အသစ်ထပ်တိုးထားသော အပိုင်း) -->
+        <div class="tab-pane fade" id="examSetup">
+          <div class="row g-4">
+            <div class="col-lg-7">
+              <div class="card border p-3 bg-light">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <h5 class="fw-bold text-danger mb-0"><i class="bi bi-sliders"></i> Create / Configure Test Session</h5>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetExamForm()">New / Clear Form</button>
+                </div>
+
+                <form id="formExamSetup" onsubmit="saveExamSession(event)">
+                  <div class="row g-3">
+                    <div class="col-md-4">
+                      <label class="fw-bold small">Exam Code / ID</label>
+                      <input type="text" id="exId" class="form-control border-danger fw-bold" placeholder="e.g. SCM-2026" required>
+                    </div>
+                    <div class="col-md-8">
+                      <label class="fw-bold small">Subject / Course Title</label>
+                      <input type="text" id="exTitle" class="form-control border-danger" placeholder="e.g. IQN Diploma in Supply Chain Management" required>
+                    </div>
+
+                    <div class="col-md-4">
+                      <label class="fw-bold small">Target Department</label>
+                      <select id="exDept" class="form-select">
+                        <option value="ALL">All Employees (ဌာနအားလုံး)</option>
+                      </select>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="fw-bold small">Random Questions Count</label>
+                      <input type="number" id="exQCount" class="form-control" value="20" min="1" required>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="fw-bold small">Points per Question</label>
+                      <input type="number" id="exPoints" class="form-control" value="5" min="1" required>
+                    </div>
+
+                    <div class="col-md-4">
+                      <label class="fw-bold small">Passing Score</label>
+                      <input type="number" id="exPass" class="form-control" value="50" min="1" required>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="fw-bold small">Time Limit (Minutes)</label>
+                      <input type="number" id="exTimer" class="form-control" value="45" min="0" placeholder="0 = No Limit" required>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="fw-bold small">Status</label>
+                      <select id="exStatus" class="form-select fw-bold text-success">
+                        <option value="Active">Active (ဖြေဆိုခွင့်ပြုမည်)</option>
+                        <option value="Closed">Closed (ပိတ်ထားမည်)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <hr class="my-3">
+
+                  <!-- Question Bank Builder -->
+                  <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+                    <h6 class="fw-bold mb-0 text-primary">Question Bank (<span id="qBankCount">0</span> Questions Loaded)</h6>
+                    <div class="d-flex gap-2">
+                      <button type="button" class="btn btn-sm btn-warning fw-bold" onclick="loadDefaultIQNQuestions()">
+                        <i class="bi bi-lightning-charge-fill"></i> Load IQN SCM (60 Qs)
+                      </button>
+                      <label class="btn btn-sm btn-success mb-0">
+                        <i class="bi bi-file-earmark-excel"></i> Import Excel
+                        <input type="file" id="excelQInput" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importQuestionsExcel(event)">
+                      </label>
+                      <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearQuestionBank()">Clear All</button>
+                    </div>
+                  </div>
+                  <div class="small text-muted mb-2">
+                    * Excel ဖြင့် ထည့်သွင်းလိုပါက Column (6) ခု: <code>Question | OptionA | OptionB | OptionC | OptionD | AnsIndex (0=A, 1=B, 2=C, 3=D)</code> ပုံစံဖြင့် ထည့်သွင်းနိုင်ပါသည်။
+                  </div>
+
+                  <!-- Manual Question Adder -->
+                  <div class="card p-2 mb-3 border-primary bg-white">
+                    <div class="fw-bold small text-primary mb-2">+ Add Single Question Manually</div>
+                    <input type="text" id="mqText" class="form-control form-control-sm mb-2" placeholder="Enter question text...">
+                    <div class="row g-2 mb-2">
+                      <div class="col-6"><input type="text" id="mqOpt0" class="form-control form-control-sm" placeholder="Option A"></div>
+                      <div class="col-6"><input type="text" id="mqOpt1" class="form-control form-control-sm" placeholder="Option B"></div>
+                      <div class="col-6"><input type="text" id="mqOpt2" class="form-control form-control-sm" placeholder="Option C"></div>
+                      <div class="col-6"><input type="text" id="mqOpt3" class="form-control form-control-sm" placeholder="Option D"></div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                      <div class="d-flex align-items-center gap-2">
+                        <span class="small fw-bold">Correct Answer:</span>
+                        <select id="mqAns" class="form-select form-select-sm" style="width:120px;">
+                          <option value="0">Option A</option>
+                          <option value="1">Option B</option>
+                          <option value="2">Option C</option>
+                          <option value="3">Option D</option>
+                        </select>
+                      </div>
+                      <button type="button" class="btn btn-sm btn-primary" onclick="addManualQuestion()">Add to Pool</button>
+                    </div>
+                  </div>
+
+                  <div class="q-preview-box mb-3" id="qPreviewContainer">
+                    <div class="text-muted small text-center py-4">No questions in pool yet. Click "Load IQN SCM (60 Qs)" or add questions above.</div>
+                  </div>
+
+                  <button type="submit" class="btn btn-danger w-100 fw-bold py-2"><i class="bi bi-cloud-check-fill"></i> Save Test Session & Publish</button>
+                </form>
+              </div>
+            </div>
+
+            <!-- Existing Test Sessions List -->
+            <div class="col-lg-5">
+              <div class="card border p-3 h-100">
+                <h5 class="fw-bold text-dark mb-3"><i class="bi bi-collection-play"></i> Configured Test Sessions</h5>
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered table-hover align-middle text-center">
+                    <thead class="table-dark">
+                      <tr>
+                        <th>Exam ID & Title</th>
+                        <th>Target</th>
+                        <th>Config</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="examSessionsBody">
+                      <tr><td colspan="5" class="text-muted py-3">Loading exams...</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCnQcsv8TekFkOyOPnb3UWZytPq7zBxLfI",
+      authDomain: "my-apps-a87a3.firebaseapp.com",
+      projectId: "my-apps-a87a3",
+      storageBucket: "my-apps-a87a3.firebasestorage.app",
+      messagingSenderId: "880270085984",
+      appId: "1:880270085984:web:d65a0c381172def3af1805"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+
+    let appData = { emps: [], depts: [], settings: { departments: {} }, exams: [] };
+    let currentQuestionBank = [];
+
+    // IQN Supply Chain Management Default 60 Questions
+    const DEFAULT_IQN_60_QUESTIONS = [
+      { q: "What is the primary difference between a Supply Chain and Logistics?", opts: ["Logistics is broader than Supply Chain", "Supply Chain focuses only on transportation", "Logistics is a subset of the Supply Chain focusing on movement and storage", "There is no difference"], ans: 2 },
+      { q: "A 'Push' supply chain strategy is primarily driven by:", opts: ["Actual customer orders", "Forecasted demand", "Supplier capacity", "Real-time POS data"], ans: 1 },
+      { q: "A 'Pull' supply chain strategy is primarily driven by:", opts: ["Confirmed customer orders", "Long-term forecasting", "Manufacturer's production schedule", "Inventory holding capacity"], ans: 0 },
+      { q: "What does 'Strategic Fit' mean in Supply Chain Management?", opts: ["Hiring the right employees", "Aligning the supply chain strategy with the overall corporate strategy", "Choosing the cheapest suppliers", "Maximizing warehouse space"], ans: 1 },
+      { q: "Which type of product is best suited for a responsive supply chain?", opts: ["Basic commodities like salt", "Products with highly predictable demand", "Products with short lifecycles and high demand uncertainty", "Products with low profit margins"], ans: 2 },
+      { q: "In the PMDR cycle, what does 'Procure' primarily focus on?", opts: ["Manufacturing goods", "Sourcing and supplier management", "Delivering to customers", "Handling customer returns"], ans: 1 },
+      { q: "What is the main goal of Lean Manufacturing?", opts: ["To increase safety stock", "To eliminate waste (Muda) and optimize flow", "To increase the number of facilities", "To maximize warehouse size"], ans: 1 },
+      { q: "Cross-docking is a logistics technique used in which phase of the PMDR cycle?", opts: ["Procure", "Make", "Deliver", "Return"], ans: 2 },
+      { q: "What is the primary objective of Reverse Logistics (Return phase)?", opts: ["Sending raw materials to the factory", "Recycling, repairing, or disposing of returned goods", "Delivering products to the final customer", "Paying suppliers"], ans: 1 },
+      { q: "Which of the following is a Structural Driver in the FIIPPP framework?", opts: ["Pricing", "Projects", "People", "Facilities"], ans: 3 },
+      { q: "Which of the following is an Operational Driver in the FIIPPP framework?", opts: ["Inventory", "Information", "Pricing", "Facilities"], ans: 2 },
+      { q: "Inventory held specifically to protect against uncertainty in demand or supply is called:", opts: ["Cycle Stock", "Seasonal Stock", "Safety Stock", "Pipeline Stock"], ans: 2 },
+      { q: "What is Cycle Stock?", opts: ["Inventory held for emergencies", "Inventory held to meet normal, regular demand", "Inventory in transit", "Inventory that is defective"], ans: 1 },
+      { q: "What is the 'Bullwhip Effect'?", opts: ["A method of employee training", "Small fluctuations in retail demand causing massive distortion upstream", "A pricing strategy for new products", "A type of direct shipping"], ans: 1 },
+      { q: "Which driver acts as the 'nervous system' connecting all other supply chain drivers?", opts: ["Facilities", "Information", "People", "Projects"], ans: 1 },
+      { q: "Which pricing strategy involves maintaining consistently low prices without frequent promotions?", opts: ["High-Low Pricing", "Dynamic Pricing", "Everyday Low Pricing (EDLP)", "Skimming Pricing"], ans: 2 },
+      { q: "High-Low Pricing tends to cause which of the following in a supply chain?", opts: ["Smoother operational flow", "Artificial demand peaks and inventory spikes", "Reduced transportation costs", "Better supplier relationships"], ans: 1 },
+      { q: "What is a major trade-off when centralizing facilities (e.g., one large warehouse)?", opts: ["High responsiveness but high facility costs", "Low transportation costs but high inventory costs", "High efficiency but lower responsiveness to local markets", "It improves both efficiency and responsiveness simultaneously"], ans: 2 },
+      { q: "Implementing a new ERP (Enterprise Resource Planning) system falls under which FIIPPP driver?", opts: ["Pricing", "Projects", "Inventory", "Facilities"], ans: 1 },
+      { q: "Change Management and skills training are primarily associated with which supply chain driver?", opts: ["Information", "Projects", "People", "Pricing"], ans: 2 },
+      { q: "What does EOQ (Economic Order Quantity) attempt to balance?", opts: ["Production cost and marketing cost", "Holding (inventory) cost and ordering cost", "Transportation cost and facility cost", "Labor cost and material cost"], ans: 1 },
+      { q: "If a company prioritizes 'Efficiency' over 'Responsiveness', it is likely to:", opts: ["Use fast, expensive air freight", "Keep large safety stocks everywhere", "Ship in large, full-truckload batches", "Customize every order"], ans: 2 },
+      { q: "Which of the following is an example of Demand Uncertainty?", opts: ["A supplier's factory burns down", "A sudden, unpredictable surge in customer orders", "A port strike delaying shipments", "A truck breaking down on the highway"], ans: 1 },
+      { q: "A 'Hub and Spoke' distribution model is an example of optimizing which PMDR phase?", opts: ["Procure", "Make", "Deliver", "Return"], ans: 2 },
+      { q: "Evaluating supplier cost, quality, and reliability is known as:", opts: ["Order Management", "Supplier Selection", "Cross-docking", "Gatekeeping"], ans: 1 },
+      { q: "What is the primary function of 'Gatekeeping' in the Return phase?", opts: ["Stopping delivery trucks at the warehouse gate", "Screening defective returns to decide if they should be accepted", "Paying employees", "Checking the quality of raw materials from suppliers"], ans: 1 },
+      { q: "To solve the Bullwhip Effect, supply chain partners must:", opts: ["Increase prices", "Share point-of-sale (POS) information in real-time", "Stop communicating with each other", "Build more warehouses"], ans: 1 },
+      { q: "Make-to-Stock (MTS) is strongly associated with which supply chain paradigm?", opts: ["Pull Strategy", "Push Strategy", "Just-In-Time (JIT)", "Agile Manufacturing"], ans: 1 },
+      { q: "Which transport mode generally offers the highest efficiency (lowest cost) but the lowest responsiveness (slowest speed)?", opts: ["Air freight", "Water (Maritime) transport", "Road transport", "Rail transport"], ans: 1 },
+      { q: "According to the IQN syllabus, what are the three core flows in any supply chain?", opts: ["Product, Information, and Cash", "People, Projects, and Pricing", "Procure, Make, and Deliver", "Strategy, Operations, and Drivers"], ans: 0 },
+      { q: "Which concept refers to the point where a supply chain shifts from being Push-driven to Pull-driven?", opts: ["Push/Pull Boundary", "Strategic Fit Point", "Efficiency Node", "Bullwhip Origin"], ans: 0 },
+      { q: "A supply chain that focuses on lowering costs and increasing asset utilization is emphasizing:", opts: ["Responsiveness", "Efficiency", "Agility", "Customer Intimacy"], ans: 1 },
+      { q: "What type of uncertainty refers to the unpredictability of raw material availability?", opts: ["Demand Uncertainty", "Supply Uncertainty", "Price Uncertainty", "Political Uncertainty"], ans: 1 },
+      { q: "According to Michael Porter, which framework describes the activities that create value and competitive advantage?", opts: ["PMDR Cycle", "Value Chain", "FIIPPP Model", "EOQ Formula"], ans: 1 },
+      { q: "Which of the following is NOT a primary flow in a supply chain?", opts: ["Information Flow", "Cash Flow", "Product Flow", "Facility Flow"], ans: 3 },
+      { q: "If a company promises next-day delivery for highly customized products, its supply chain must prioritize:", opts: ["Low-cost manufacturing", "Responsiveness", "Everyday Low Pricing", "Centralized warehousing"], ans: 1 },
+      { q: "In the Procure phase, deciding whether to produce an item internally or buy it from an external supplier is known as:", opts: ["Make-or-Buy Decision", "Supplier Selection", "Cross-docking", "Gatekeeping"], ans: 0 },
+      { q: "Which factor is critical when evaluating a potential new supplier?", opts: ["Only the unit cost", "Quality, cost, and delivery reliability", "The distance to the final customer", "The supplier's marketing strategy"], ans: 1 },
+      { q: "Diversifying suppliers (using multiple suppliers for the same material) is a strategy primarily used for:", opts: ["Reducing inventory costs", "Risk Mitigation", "Improving lean manufacturing", "Speeding up the Deliver phase"], ans: 1 },
+      { q: "What does SRM stand for in the context of the Procure phase?", opts: ["Supply Return Method", "Supplier Relationship Management", "Strategic Resource Matrix", "Standard Routing Mechanism"], ans: 1 },
+      { q: "Agile Manufacturing is best suited for environments with:", opts: ["High predictability and long lifecycles", "Rapid volume changes and high demand uncertainty", "Strict EDLP pricing strategies", "No competition"], ans: 1 },
+      { q: "Which phase of PMDR involves eliminating waste and optimizing flow?", opts: ["Procure", "Make", "Deliver", "Return"], ans: 1 },
+      { q: "Which transportation mode is generally the fastest but most expensive?", opts: ["Rail", "Maritime", "Road", "Air"], ans: 3 },
+      { q: "Direct Shipping means delivering products:", opts: ["Through a central hub", "Point-to-point directly to the customer without intermediaries", "Using third-party logistics", "Only to retail stores"], ans: 1 },
+      { q: "What is a major advantage of the Hub and Spoke distribution network?", opts: ["It eliminates all transportation costs", "It allows for centralized sorting and efficient routing", "It requires zero inventory", "It bypasses the Make phase"], ans: 1 },
+      { q: "Last-mile delivery refers to:", opts: ["The transportation from supplier to factory", "The final leg of delivery from a distribution center to the end customer", "The return of a defective product", "Shipping across international borders"], ans: 1 },
+      { q: "Sorting defective products into categories (repair, recycle, or discard) happens during which phase?", opts: ["Make", "Return", "Procure", "Information"], ans: 1 },
+      { q: "Which driver determines the physical location of the supply chain network hubs?", opts: ["Facilities", "Information", "Pricing", "People"], ans: 0 },
+      { q: "A company decides to hold less inventory to reduce costs. What is a potential negative consequence?", opts: ["Increased warehouse space", "Lower responsiveness and potential stockouts", "Higher product quality", "Decreased transportation costs"], ans: 1 },
+      { q: "Which IT system integrates sales, inventory, and production data across the entire enterprise?", opts: ["WMS (Warehouse Management System)", "ERP (Enterprise Resource Planning)", "GPS (Global Positioning System)", "CRM (Customer Relationship Management)"], ans: 1 },
+      { q: "Tracking product movement in real-time using RFID tags primarily enhances which supply chain driver?", opts: ["Pricing", "Information", "Projects", "People"], ans: 1 },
+      { q: "Volume discounts (offering a lower price for bulk purchases) is a strategy related to which driver?", opts: ["Pricing", "Facilities", "Projects", "People"], ans: 0 },
+      { q: "A structured initiative to expand a warehouse or upgrade a software system is an example of the ______ driver.", opts: ["People", "Information", "Projects", "Inventory"], ans: 2 },
+      { q: "Ensuring employees have the right skills and adapting to new systems relates to:", opts: ["Change Management (People driver)", "Cross-docking (Deliver phase)", "Cycle Stock (Inventory driver)", "Gatekeeping (Return phase)"], ans: 0 },
+      { q: "Which strategy involves smoothing out the supply chain by offering stable, predictable prices?", opts: ["High-Low Pricing", "Everyday Low Pricing (EDLP)", "Skimming", "Promotional Pricing"], ans: 1 },
+      { q: "Which stock is specifically accumulated in anticipation of a known peak period (e.g., a holiday season)?", opts: ["Safety Stock", "Cycle Stock", "Seasonal Stock", "Defective Stock"], ans: 2 },
+      { q: "The goal of Supply Chain Management is to maximize ______ while minimizing ______.", opts: ["Cost; Value", "Value; Total Supply Chain Cost", "Inventory; Information", "Suppliers; Customers"], ans: 1 },
+      { q: "Using an intermediary (like a 3PL) to handle logistics operations is part of optimizing which PMDR phase?", opts: ["Procure", "Make", "Deliver", "Return"], ans: 2 },
+      { q: "Which of the following creates 'artificial demand peaks' that challenge supply chain efficiency?", opts: ["EDLP", "Lean Manufacturing", "Frequent Promotional Cycles (High-Low Pricing)", "Safety Stock formulation"], ans: 2 },
+      { q: "Why is 'Information Sharing' the best cure for the Bullwhip Effect?", opts: ["It stops customers from buying too much", "It replaces the need for transportation", "It provides all supply chain partners with actual, real-time demand data", "It reduces the price of raw materials"], ans: 2 }
+    ];
+
+    function togglePassField(inputId, btn) {
+      const inp = document.getElementById(inputId);
+      const icon = btn.querySelector('i');
+      if (inp.type === 'password') { inp.type = 'text'; icon.classList.replace('bi-eye', 'bi-eye-slash'); }
+      else { inp.type = 'password'; icon.classList.replace('bi-eye-slash', 'bi-eye'); }
+    }
+
+    document.getElementById('statusToggle').addEventListener('change', function() {
+      let lbl = document.getElementById('statusLabel');
+      lbl.innerText = this.checked ? 'Active' : 'Resigned / Inactive';
+      lbl.className = this.checked ? 'form-check-label fw-bold text-success' : 'form-check-label fw-bold text-danger';
+    });
+
+    window.onload = function() {
+      db.collection('employees').onSnapshot({ includeMetadataChanges: true }, snap => {
+        const el = document.getElementById('connStatus');
+        el.className = snap.metadata.fromCache ? 'badge bg-secondary me-2' : 'badge bg-success me-2';
+        el.innerHTML = snap.metadata.fromCache ? '<i class="bi bi-wifi-off"></i> Offline' : '<i class="bi bi-wifi"></i> Live';
+        appData.emps = snap.docs.map(d => d.data());
+        renderEmps();
+      });
+
+      db.collection('departments').onSnapshot(snap => {
+        appData.depts = snap.docs.map(d => [d.data().main, d.data().sub]);
+        renderDepts();
+      });
+
+      db.collection('tms_settings').onSnapshot(snap => {
+        appData.settings.departments = {};
+        const reserved = ['Office Lat', 'Office Lng', 'Geo Radius', 'Work Start', 'Work End', 'Leave Type', 'System Type'];
+        snap.docs.forEach(doc => {
+          let r = doc.data();
+          if (!reserved.includes(r.category)) {
+            if (!appData.settings.departments[r.category]) appData.settings.departments[r.category] = [];
+            appData.settings.departments[r.category].push(r.subcategory);
+          }
+        });
+      });
+
+      db.collection('tms_exams').onSnapshot(snap => {
+        appData.exams = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+        renderExamSessions();
+      });
+    };
+
+    function renderDepts() {
+      let mainDepts = [...new Set(appData.depts.map(d => d[0]).filter(Boolean))];
+      let deptOpts = '<option value="">Select Department...</option>' + mainDepts.map(d => `<option value="${d}">${d}</option>`).join('');
+      document.querySelectorAll('.dept-dropdown').forEach(el => {
+        let val = el.value; el.innerHTML = deptOpts; el.value = val;
+      });
+      document.getElementById('pairDept').innerHTML = deptOpts;
+      document.getElementById('mainDeptList').innerHTML = mainDepts.map(d => `<option value="${d}"></option>`).join('');
+
+      let exDeptSel = document.getElementById('exDept');
+      let curExDept = exDeptSel.value || 'ALL';
+      exDeptSel.innerHTML = '<option value="ALL">All Employees (ဌာနအားလုံး)</option>' + mainDepts.map(d => `<option value="${d}">${d}</option>`).join('');
+      exDeptSel.value = curExDept;
+    }
+
+    function renderEmps() {
+      let sel = document.getElementById('editEmpSelect');
+      let cur = sel.value;
+      let opts = appData.emps.map(e => `<option value="${e.code}">${e.code} - ${e.name} ${e.status === 'Inactive' ? '(Resigned)' : ''}</option>`).join('');
+      sel.innerHTML = opts ? '<option value="">Select Employee...</option>' + opts : '<option value="">No Data Found</option>';
+      sel.value = cur;
+    }
+
+    function updateSubAndPos(deptEl, actionType) {
+      let form = deptEl.closest('form');
+      let mainDept = deptEl.value;
+      let subSelect = form.querySelector('.sub-dept-dropdown');
+      if (subSelect) {
+        let subs = appData.depts.filter(d => d[0] === mainDept).map(d => d[1]).filter(Boolean);
+        subSelect.innerHTML = '<option value="">Select Sub-Department...</option>' + subs.map(s => `<option value="${s}">${s}</option>`).join('');
+      }
+      let posSelect = form.querySelector(actionType === 'create' ? '.create-position' : '.edit-position');
+      if (posSelect) {
+        let positions = appData.settings.departments[mainDept] || [];
+        posSelect.innerHTML = '<option value="">Select Position...</option>' + positions.map(p => `<option value="${p}">${p}</option>`).join('');
+      }
+    }
+
+    async function submitDeptForm(e) {
+      e.preventDefault();
+      let data = Object.fromEntries(new FormData(e.target).entries());
+      db.collection('departments').add({ main: data.main, sub: data.sub });
+      Swal.fire('Success', 'Department saved.', 'success');
+      e.target.reset();
+    }
+
+    async function addSettingPair(e) {
+      e.preventDefault();
+      let dept = document.getElementById('pairDept').value;
+      let pos = document.getElementById('pairPos').value;
+      db.collection('tms_settings').add({ category: dept, subcategory: pos });
+      Swal.fire('Added', 'Job Position saved.', 'success');
+      document.getElementById('pairPos').value = '';
+    }
+
+    async function addTransactionSysType(e) {
+      e.preventDefault();
+      let name = document.getElementById('transTypeName').value.trim().toUpperCase();
+      let effect = document.getElementById('transTypeEffect').value;
+      db.collection('tms_settings').add({ category: 'System Type', subcategory: name, effect: effect });
+      Swal.fire('Saved', `System Type "${name}" (${effect}) added.`, 'success');
+      document.getElementById('transTypeName').value = '';
+    }
+
+    async function addLeaveTypeSetting(e) {
+      e.preventDefault();
+      let name = document.getElementById('leaveTypeName').value.trim();
+      let days = Number(document.getElementById('leaveAllowedDays').value);
+      let existing = await db.collection('tms_settings').where('category', '==', 'Leave Type').where('subcategory', '==', name).get();
+      existing.forEach(d => d.ref.delete());
+      db.collection('tms_settings').add({ category: 'Leave Type', subcategory: name, allowed_days: days });
+      Swal.fire('Saved', `${name} (${days} Days) saved.`, 'success');
+      document.getElementById('leaveTypeName').value = '';
+      document.getElementById('leaveAllowedDays').value = '';
+    }
+
+    async function addSystemSetting(e) {
+      e.preventDefault();
+      let cat = document.getElementById('sysCat').value;
+      let val = document.getElementById('sysVal').value;
+      let existing = await db.collection('tms_settings').where('category', '==', cat).get();
+      existing.forEach(doc => doc.ref.delete());
+      db.collection('tms_settings').add({ category: cat, subcategory: val });
+      Swal.fire('Saved', 'Office setting updated.', 'success');
+      document.getElementById('sysVal').value = '';
+    }
+
+    function compressImage(file, maxWidth = 400) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const scale = maxWidth / img.width;
+            canvas.width = img.width > maxWidth ? maxWidth : img.width;
+            canvas.height = img.width > maxWidth ? img.height * scale : img.height;
+            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL('image/jpeg', 0.7));
+          };
+          img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function handleEmpSubmit(e, action) {
+      e.preventDefault();
+      let form = e.target;
+      let data = Object.fromEntries(new FormData(form).entries());
+      let fileInput = document.getElementById(action === 'create' ? 'photoFile' : 'editPhotoFile');
+
+      data.status = action === 'edit' ? (document.getElementById('statusToggle').checked ? 'Active' : 'Inactive') : 'Active';
+      data.dept = data.subDept ? `${data.dept} > ${data.subDept}` : data.dept;
+      delete data.subDept;
+
+      if (fileInput.files.length > 0) {
+        data.photoUrl = await compressImage(fileInput.files[0], 400);
+      } else {
+        data.photoUrl = action === 'edit' ? document.getElementById('existingPhotoUrl').value : "";
+      }
+
+      if (action === 'create') {
+        data.created_at = Date.now();
+        db.collection('employees').doc(data.code).set(data);
+        Swal.fire('Success', 'New Employee registered.', 'success');
+        form.reset();
+      } else {
+        db.collection('employees').doc(data.code).update(data);
+        Swal.fire('Success', 'Employee profile updated.', 'success');
+      }
+    }
+
+    function fetchEmpData() {
+      const code = document.getElementById('editEmpSelect').value;
+      const emp = appData.emps.find(i => i.code === code);
+      if (emp) {
+        document.getElementById('editFields').style.display = 'flex';
+        document.getElementById('statusContainer').style.display = 'block';
+        let frm = document.getElementById('formEdit');
+        let dParts = emp.dept ? emp.dept.split(' > ') : [""];
+
+        frm.name.value = emp.name || '';
+        frm.fatherName.value = emp.fatherName || '';
+        frm.nrc.value = emp.nrc || '';
+        frm.username.value = emp.username || '';
+        frm.password.value = emp.password || '';
+        frm.ssbId.value = emp.ssbId || '';
+        frm.taxId.value = emp.taxId || '';
+        frm.bio.value = emp.bio || '';
+        frm.dept.value = dParts[0].trim();
+        updateSubAndPos(frm.dept, 'edit');
+        if (dParts.length > 1 && frm.subDept) frm.subDept.value = dParts[1].trim();
+        frm.position.value = emp.position || '';
+        frm.phone.value = emp.phone || '';
+        frm.email.value = emp.email || '';
+        frm.remark.value = emp.remark || '';
+
+        let toggle = document.getElementById('statusToggle');
+        toggle.checked = (emp.status !== 'Inactive');
+        toggle.dispatchEvent(new Event('change'));
+
+        let thumbImg = document.getElementById('editEmpThumbnail');
+        let noImgText = document.getElementById('noImageText');
+        document.getElementById('existingPhotoUrl').value = emp.photoUrl || '';
+        if (emp.photoUrl) {
+          thumbImg.src = emp.photoUrl; thumbImg.style.display = 'block'; noImgText.style.display = 'none';
+        } else {
+          thumbImg.style.display = 'none'; noImgText.style.display = 'block';
+        }
+      } else {
+        document.getElementById('editFields').style.display = 'none';
+        document.getElementById('statusContainer').style.display = 'none';
+      }
+    }
+
+    // ==================== ONLINE EXAM SETUP FUNCTIONS ====================
+    function renderQuestionBankPreview() {
+      document.getElementById('qBankCount').innerText = currentQuestionBank.length;
+      const box = document.getElementById('qPreviewContainer');
+      if (currentQuestionBank.length === 0) {
+        box.innerHTML = '<div class="text-muted small text-center py-4">No questions in pool yet. Click "Load IQN SCM (60 Qs)" or add questions above.</div>';
+        return;
+      }
+      const labels = ['A', 'B', 'C', 'D'];
+      box.innerHTML = currentQuestionBank.map((item, idx) => `
+        <div class="border-bottom pb-2 mb-2 small d-flex justify-content-between align-items-start">
+          <div>
+            <div class="fw-bold text-dark">${idx + 1}. ${item.q}</div>
+            <div class="text-muted ms-2">
+              ${item.opts.map((o, oi) => `<span class="me-3 ${oi === Number(item.ans) ? 'text-success fw-bold' : ''}">${labels[oi]}) ${o} ${oi === Number(item.ans) ? '✓' : ''}</span>`).join('')}
+            </div>
+          </div>
+          <button type="button" class="btn btn-sm text-danger py-0 px-1" onclick="removeQuestionFromBank(${idx})"><i class="bi bi-trash"></i></button>
+        </div>
+      `).join('');
+    }
+
+    function loadDefaultIQNQuestions() {
+      currentQuestionBank = JSON.parse(JSON.stringify(DEFAULT_IQN_60_QUESTIONS));
+      if (!document.getElementById('exId').value) document.getElementById('exId').value = 'IQN-SCM-01';
+      if (!document.getElementById('exTitle').value) document.getElementById('exTitle').value = 'IQN Diploma in Supply Chain Management';
+      renderQuestionBankPreview();
+      Swal.fire('Loaded!', 'IQN Supply Chain Management မေးခွန်း (၆၀) ကို ထည့်သွင်းပြီးပါပြီ။', 'success');
+    }
+
+    function addManualQuestion() {
+      const q = document.getElementById('mqText').value.trim();
+      const o0 = document.getElementById('mqOpt0').value.trim();
+      const o1 = document.getElementById('mqOpt1').value.trim();
+      const o2 = document.getElementById('mqOpt2').value.trim();
+      const o3 = document.getElementById('mqOpt3').value.trim();
+      const ans = Number(document.getElementById('mqAns').value);
+
+      if (!q || !o0 || !o1) return Swal.fire('Incomplete', 'Please enter Question and at least Option A & B.', 'warning');
+      currentQuestionBank.push({ q, opts: [o0, o1, o2, o3].filter(Boolean), ans });
+      ['mqText', 'mqOpt0', 'mqOpt1', 'mqOpt2', 'mqOpt3'].forEach(id => document.getElementById(id).value = '');
+      renderQuestionBankPreview();
+    }
+
+    function removeQuestionFromBank(idx) {
+      currentQuestionBank.splice(idx, 1);
+      renderQuestionBankPreview();
+    }
+
+    function clearQuestionBank() {
+      currentQuestionBank = [];
+      renderQuestionBankPreview();
+    }
+
+    function importQuestionsExcel(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const wb = XLSX.read(evt.target.result, { type: 'binary' });
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
+        let added = 0;
+        rows.forEach((r, idx) => {
+          if (idx === 0 && String(r[0]).toLowerCase().includes('question')) return;
+          if (r && r[0] && r[1] && r[2]) {
+            let ansIdx = Number(r[5]);
+            if (isNaN(ansIdx) || ansIdx < 0 || ansIdx > 3) ansIdx = 0;
+            currentQuestionBank.push({
+              q: String(r[0]).trim(),
+              opts: [r[1], r[2], r[3], r[4]].filter(x => x !== undefined && String(x).trim() !== '').map(x => String(x).trim()),
+              ans: ansIdx
+            });
+            added++;
+          }
+        });
+        renderQuestionBankPreview();
+        Swal.fire('Imported!', `${added} questions imported from Excel.`, 'success');
+        e.target.value = '';
+      };
+      reader.readAsBinaryString(file);
+    }
+
+    async function saveExamSession(e) {
+      e.preventDefault();
+      if (currentQuestionBank.length === 0) {
+        return Swal.fire('No Questions', 'ကျေးဇူးပြု၍ မေးခွန်းများ အရင်ထည့်သွင်းပါ။', 'warning');
+      }
+      const examId = document.getElementById('exId').value.trim().toUpperCase();
+      const payload = {
+        exam_id: examId,
+        title: document.getElementById('exTitle').value.trim(),
+        target_dept: document.getElementById('exDept').value,
+        question_count: Number(document.getElementById('exQCount').value),
+        points_per_q: Number(document.getElementById('exPoints').value),
+        pass_score: Number(document.getElementById('exPass').value),
+        time_limit: Number(document.getElementById('exTimer').value || 0),
+        status: document.getElementById('exStatus').value,
+        questions: currentQuestionBank,
+        updated_at: Date.now()
+      };
+      await db.collection('tms_exams').doc(examId).set(payload);
+      Swal.fire('Saved!', `Exam "${examId}" ကို သိမ်းဆည်းပြီးပါပြီ။`, 'success');
+    }
+
+    function resetExamForm() {
+      document.getElementById('formExamSetup').reset();
+      currentQuestionBank = [];
+      renderQuestionBankPreview();
+    }
+
+    function editExamSession(examId) {
+      const ex = appData.exams.find(x => x.exam_id === examId);
+      if (!ex) return;
+      document.getElementById('exId').value = ex.exam_id;
+      document.getElementById('exTitle').value = ex.title;
+      document.getElementById('exDept').value = ex.target_dept || 'ALL';
+      document.getElementById('exQCount').value = ex.question_count || 20;
+      document.getElementById('exPoints').value = ex.points_per_q || 5;
+      document.getElementById('exPass').value = ex.pass_score || 50;
+      document.getElementById('exTimer').value = ex.time_limit || 0;
+      document.getElementById('exStatus').value = ex.status || 'Active';
+      currentQuestionBank = Array.isArray(ex.questions) ? JSON.parse(JSON.stringify(ex.questions)) : [];
+      renderQuestionBankPreview();
+    }
+
+    function toggleExamStatus(examId, curStatus) {
+      const nextStatus = curStatus === 'Active' ? 'Closed' : 'Active';
+      db.collection('tms_exams').doc(examId).update({ status: nextStatus });
+    }
+
+    function deleteExamSession(examId) {
+      Swal.fire({
+        title: 'Delete Exam?',
+        text: `Are you sure you want to delete ${examId}?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Delete'
+      }).then(res => {
+        if (res.isConfirmed) db.collection('tms_exams').doc(examId).delete();
+      });
+    }
+
+    function copyExamLink(examId) {
+      const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
+      const url = `${baseUrl}exam.html?exam_id=${encodeURIComponent(examId)}`;
+      navigator.clipboard.writeText(url);
+      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Exam Link Copied!', text: url, showConfirmButton: false, timer: 2500 });
+    }
+
+    function renderExamSessions() {
+      const tbody = document.getElementById('examSessionsBody');
+      if (appData.exams.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-muted py-4">No Exam Sessions Created Yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = appData.exams.map(ex => {
+        const qPoolLen = Array.isArray(ex.questions) ? ex.questions.length : 0;
+        const totalMarks = Number(ex.question_count || 20) * Number(ex.points_per_q || 5);
+        const badgeCls = ex.status === 'Active' ? 'bg-success' : 'bg-secondary';
+        return `
+          <tr>
+            <td class="text-start">
+              <div class="fw-bold text-primary">${ex.exam_id}</div>
+              <div class="small text-dark">${ex.title}</div>
+            </td>
+            <td class="small">${ex.target_dept || 'ALL'}</td>
+            <td class="small">
+              <div><b>${ex.question_count}</b> / ${qPoolLen} Qs</div>
+              <div class="text-muted">${totalMarks} Marks</div>
+            </td>
+            <td>
+              <span class="badge ${badgeCls}" style="cursor:pointer;" onclick="toggleExamStatus('${ex.exam_id}', '${ex.status}')">${ex.status}</span>
+            </td>
+            <td>
+              <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-primary" title="Copy Link" onclick="copyExamLink('${ex.exam_id}')"><i class="bi bi-link-45deg"></i></button>
+                <button class="btn btn-outline-secondary" title="Edit" onclick="editExamSession('${ex.exam_id}')"><i class="bi bi-pencil"></i></button>
+                <button class="btn btn-outline-danger" title="Delete" onclick="deleteExamSession('${ex.exam_id}')"><i class="bi bi-trash"></i></button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+  </script>
+</body>
+</html>
