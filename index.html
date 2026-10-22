@@ -16,6 +16,7 @@
     .card { border: none; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
     .q-preview-box { max-height: 320px; overflow-y: auto; background: #fff; border: 1px solid #dee2e6; border-radius: 6px; padding: 12px; }
     .setting-list-box { max-height: 220px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 6px; background: #fff; }
+    .emp-multi-box { max-height: 180px; overflow-y: auto; background: #fff; border: 1px solid #ced4da; border-radius: 6px; padding: 8px 12px; }
   </style>
 </head>
 <body>
@@ -49,7 +50,7 @@
       </ul>
 
       <div class="tab-content">
-        <!-- ၁။ ဝန်ထမ်းအသစ်သွင်းခြင်း (Father Name & NRC No. ပါဝင်သည်) -->
+        <!-- ၁။ ဝန်ထမ်းအသစ်သွင်းခြင်း -->
         <div class="tab-pane fade show active" id="createEmp">
           <form id="formCreate" onsubmit="handleEmpSubmit(event, 'create')">
             <div class="row g-3">
@@ -74,8 +75,29 @@
               <div class="col-md-3"><label class="fw-bold">Phone</label><input type="text" class="form-control" name="phone"></div>
               <div class="col-md-3"><label class="fw-bold">Email</label><input type="email" class="form-control" name="email"></div>
 
-              <div class="col-md-6"><label class="fw-bold text-primary">SSB ID</label><input type="text" class="form-control border-primary" name="ssbId" placeholder="SSB Number"></div>
-              <div class="col-md-6"><label class="fw-bold text-primary">Tax ID</label><input type="text" class="form-control border-primary" name="taxId" placeholder="Tax Number"></div>
+              <!-- Join Date, Insurance Policy No, Valid Date, SSB, Tax ID -->
+              <div class="col-md-3"><label class="fw-bold text-success">Join Date (အလုပ်ဝင်ရက်)</label><input type="date" class="form-control border-success" name="joinDate" required></div>
+              <div class="col-md-3"><label class="fw-bold text-info text-dark">Insurance Policy No.</label><input type="text" class="form-control border-info" name="insPolicyNo" placeholder="Policy Number"></div>
+              <div class="col-md-2"><label class="fw-bold text-info text-dark">Insurance Valid Date</label><input type="date" class="form-control border-info" name="insValidDate"></div>
+              <div class="col-md-2"><label class="fw-bold text-primary">SSB ID</label><input type="text" class="form-control border-primary" name="ssbId" placeholder="SSB No."></div>
+              <div class="col-md-2"><label class="fw-bold text-primary">Tax ID</label><input type="text" class="form-control border-primary" name="taxId" placeholder="Tax No."></div>
+
+              <!-- Address -->
+              <div class="col-md-12">
+                <label class="fw-bold">Address (နေရပ်လိပ်စာ)</label>
+                <input type="text" class="form-control" name="address" placeholder="အပြည့်အစုံ ရေးသွင်းရန်...">
+              </div>
+
+              <!-- Opening Leave Balances -->
+              <div class="col-md-12">
+                <div class="p-3 bg-light border border-warning rounded">
+                  <label class="fw-bold text-dark mb-2"><i class="bi bi-calendar2-check text-warning"></i> Opening Leave Balances (ဝန်ထမ်းအတွက် လက်ကျန်ခွင့် အဖွင့်ရက်များ သတ်မှတ်ရန်)</label>
+                  <div class="row g-2" id="createOpeningLeavesBox">
+                    <div class="text-muted small">Loading leave types...</div>
+                  </div>
+                </div>
+              </div>
+
               <div class="col-md-6"><label class="fw-bold">Bio / Skills</label><textarea class="form-control" name="bio" rows="3" placeholder="Skills, qualifications..."></textarea></div>
               <div class="col-md-6"><label class="fw-bold">Internal Remarks</label><textarea class="form-control" name="remark" rows="3" placeholder="Additional HR details..."></textarea></div>
             </div>
@@ -122,14 +144,35 @@
               <div class="col-md-3"><label class="fw-bold text-primary">SSB ID</label><input type="text" class="form-control border-primary" name="ssbId"></div>
               <div class="col-md-3"><label class="fw-bold text-primary">Tax ID</label><input type="text" class="form-control border-primary" name="taxId"></div>
 
-              <div class="col-md-3 text-center">
+              <!-- Join Date, Insurance Policy No, Valid Date, Photo -->
+              <div class="col-md-3"><label class="fw-bold text-success">Join Date (အလုပ်ဝင်ရက်)</label><input type="date" class="form-control border-success" name="joinDate"></div>
+              <div class="col-md-3"><label class="fw-bold text-info text-dark">Insurance Policy No.</label><input type="text" class="form-control border-info" name="insPolicyNo"></div>
+              <div class="col-md-2"><label class="fw-bold text-info text-dark">Insurance Valid Date</label><input type="date" class="form-control border-info" name="insValidDate"></div>
+              <div class="col-md-2 text-center">
                 <label class="fw-bold">Current Photo</label><br>
-                <img id="editEmpThumbnail" src="" style="max-height: 60px; display: none; border-radius: 5px; margin: 0 auto;">
+                <img id="editEmpThumbnail" src="" style="max-height: 55px; display: none; border-radius: 5px; margin: 0 auto;">
                 <span id="noImageText" class="text-muted small" style="display:none;">No Photo</span>
               </div>
-              <div class="col-md-3"><label class="fw-bold">Update Photo</label><input type="file" class="form-control" id="editPhotoFile" accept="image/*"></div>
-              <div class="col-md-3"><label class="fw-bold">Bio / Skills</label><textarea class="form-control" name="bio" rows="2"></textarea></div>
-              <div class="col-md-3"><label class="fw-bold">Internal Remarks</label><textarea class="form-control" name="remark" rows="2"></textarea></div>
+              <div class="col-md-2"><label class="fw-bold">Update Photo</label><input type="file" class="form-control" id="editPhotoFile" accept="image/*"></div>
+
+              <!-- Address -->
+              <div class="col-md-12">
+                <label class="fw-bold">Address (နေရပ်လိပ်စာ)</label>
+                <input type="text" class="form-control" name="address" placeholder="အပြည့်အစုံ ရေးသွင်းရန်...">
+              </div>
+
+              <!-- Opening Leave Balances -->
+              <div class="col-md-12">
+                <div class="p-3 bg-light border border-warning rounded">
+                  <label class="fw-bold text-dark mb-2"><i class="bi bi-calendar2-check text-warning"></i> Opening Leave Balances (ဝန်ထမ်းအတွက် လက်ကျန်ခွင့် အဖွင့်ရက်များ ပြင်ဆင်ရန်)</label>
+                  <div class="row g-2" id="editOpeningLeavesBox">
+                    <div class="text-muted small">Loading leave types...</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-md-6"><label class="fw-bold">Bio / Skills</label><textarea class="form-control" name="bio" rows="3"></textarea></div>
+              <div class="col-md-6"><label class="fw-bold">Internal Remarks</label><textarea class="form-control" name="remark" rows="3"></textarea></div>
 
               <input type="hidden" name="photoUrl" id="existingPhotoUrl">
               <div class="col-md-12"><button type="submit" class="btn btn-success px-4 fw-bold" id="btnEdit">Update Profile</button></div>
@@ -137,7 +180,7 @@
           </form>
         </div>
 
-        <!-- ၃။ JOB & SYSTEM SETTINGS (Departments အပါအဝင် Setting အားလုံးနှင့် Edit/Delete List များ) -->
+        <!-- ၃။ JOB & SYSTEM SETTINGS -->
         <div class="tab-pane fade" id="settings">
 
           <!-- (1) Departments & Sub-Departments -->
@@ -237,7 +280,7 @@
 
           <!-- (4) Leave Types & Allowed Days -->
           <div class="card border p-3 mb-4 bg-light">
-            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-calendar-check-fill text-warning"></i> 4. Leave Types & Allowed Days</h6>
+            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-calendar-check-fill text-warning"></i> 4. Leave Types & Default Allowed Days</h6>
             <form onsubmit="addLeaveTypeSetting(event)" class="mb-3">
               <input type="hidden" id="editLeaveTypeDocId">
               <div class="row g-2">
@@ -246,7 +289,7 @@
                   <input type="text" id="leaveTypeName" class="form-control form-control-sm border-warning" placeholder="e.g. Casual Leave, Medical Leave" required>
                 </div>
                 <div class="col-md-4">
-                  <label class="fw-bold small">Allowed Days Per Year (ခွင့်ပြုရက်ပေါင်း)</label>
+                  <label class="fw-bold small">Default Allowed Days Per Year</label>
                   <input type="number" id="leaveAllowedDays" class="form-control form-control-sm border-warning" min="1" placeholder="e.g. 10" required>
                 </div>
                 <div class="col-md-3 align-self-end d-flex gap-2">
@@ -258,7 +301,7 @@
             <div class="setting-list-box">
               <table class="table table-sm table-bordered table-hover mb-0 align-middle text-center small">
                 <thead class="table-secondary sticky-top">
-                  <tr><th width="10%">#</th><th width="45%">Leave Type Name</th><th width="25%">Allowed Days / Year</th><th width="20%">Actions</th></tr>
+                  <tr><th width="10%">#</th><th width="45%">Leave Type Name</th><th width="25%">Default Allowed Days</th><th width="20%">Actions</th></tr>
                 </thead>
                 <tbody id="leaveTypeListBody"></tbody>
               </table>
@@ -303,7 +346,7 @@
 
         </div>
 
-        <!-- ၄။ ONLINE EXAM SETUP -->
+        <!-- ၄။ ONLINE EXAM SETUP (Individual Multi-Select & Removed Guide) -->
         <div class="tab-pane fade" id="examSetup">
           <div class="row g-4">
             <div class="col-lg-7">
@@ -324,12 +367,23 @@
                       <input type="text" id="exTitle" class="form-control border-danger" placeholder="e.g. Supply Chain Management Assessment" required>
                     </div>
 
-                    <div class="col-md-4">
-                      <label class="fw-bold small">Target Department</label>
-                      <select id="exDept" class="form-select">
-                        <option value="ALL">All Employees (ဌာနအားလုံး)</option>
-                      </select>
+                    <!-- Individual Multi-Select Box -->
+                    <div class="col-md-12">
+                      <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label class="fw-bold small text-primary">Target Employees (ဖြေဆိုရမည့် ဝန်ထမ်းများ ရွေးချယ်ရန်)</label>
+                        <div class="d-flex gap-2 align-items-center">
+                          <input type="text" id="empTargetSearch" class="form-control form-control-sm" style="width: 180px;" placeholder="Search employee..." oninput="filterExamTargetEmps()">
+                          <div class="form-check mb-0 small">
+                            <input class="form-check-input" type="checkbox" id="chkAllEmps" checked onchange="toggleSelectAllExamEmps(this)">
+                            <label class="form-check-label fw-bold text-danger" for="chkAllEmps">Select All</label>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="emp-multi-box" id="exTargetEmpList">
+                        <div class="text-muted small">Loading active employees...</div>
+                      </div>
                     </div>
+
                     <div class="col-md-4">
                       <label class="fw-bold small">Random Questions Count</label>
                       <input type="number" id="exQCount" class="form-control" value="20" min="1" required>
@@ -338,16 +392,16 @@
                       <label class="fw-bold small">Points per Question</label>
                       <input type="number" id="exPoints" class="form-control" value="5" min="1" required>
                     </div>
-
                     <div class="col-md-4">
                       <label class="fw-bold small">Passing Score</label>
                       <input type="number" id="exPass" class="form-control" value="50" min="1" required>
                     </div>
-                    <div class="col-md-4">
+
+                    <div class="col-md-6">
                       <label class="fw-bold small">Time Limit (Minutes)</label>
                       <input type="number" id="exTimer" class="form-control" value="45" min="0" placeholder="0 = No Limit" required>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-6">
                       <label class="fw-bold small">Status</label>
                       <select id="exStatus" class="form-select fw-bold text-success">
                         <option value="Active">Active (ဖြေဆိုခွင့်ပြုမည်)</option>
@@ -358,8 +412,8 @@
 
                   <hr class="my-3">
 
-                  <!-- Question Bank Builder -->
-                  <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+                  <!-- Question Bank Builder (Excel Import လမ်းညွှန် ဖယ်ရှားထားပြီး) -->
+                  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
                     <h6 class="fw-bold mb-0 text-primary">Question Bank (<span id="qBankCount">0</span> Questions Loaded)</h6>
                     <div class="d-flex flex-wrap gap-2">
                       <button type="button" class="btn btn-sm btn-outline-primary fw-bold" onclick="downloadSampleExamExcel()">
@@ -371,10 +425,6 @@
                       </label>
                       <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearQuestionBank()">Clear All</button>
                     </div>
-                  </div>
-                  <div class="alert alert-info py-2 px-3 small mb-3">
-                    <strong>Excel Import လမ်းညွှန်:</strong> Column (6) ခု <code>Question | Option A | Option B | Option C | Option D | Correct Answer</code> ထည့်သွင်းပါ။<br>
-                    <strong>အဖြေမှန် (Column F) သတ်မှတ်ပုံ:</strong> <code>A, B, C, D</code> ဟု အက္ခရာဖြင့်ဖြစ်စေ၊ <code>1, 2, 3, 4</code> ဟု ဂဏန်းဖြင့်ဖြစ်စေ၊ အဖြေမှန်စာသားအတိုင်း တိုက်ရိုက်ဖြစ်စေ ရေးထည့်နိုင်ပါသည်။
                   </div>
 
                   <!-- Manual Question Adder -->
@@ -419,7 +469,7 @@
                     <thead class="table-dark">
                       <tr>
                         <th>Exam ID & Title</th>
-                        <th>Target</th>
+                        <th>Target Emps</th>
                         <th>Config</th>
                         <th>Status</th>
                         <th>Actions</th>
@@ -451,9 +501,10 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
     db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
 
-    let appData = { emps: [], depts: [], deptDocs: [], settingsDocs: [], settings: { departments: {} }, exams: [] };
+    let appData = { emps: [], depts: [], deptDocs: [], settingsDocs: [], settings: { departments: {}, leaveTypes: [] }, exams: [] };
     let currentQuestionBank = [];
 
     function togglePassField(inputId, btn) {
@@ -470,12 +521,17 @@
     });
 
     window.onload = function() {
-      db.collection('employees').onSnapshot({ includeMetadataChanges: true }, snap => {
+      db.collection('employees').onSnapshot(snap => {
         const el = document.getElementById('connStatus');
-        el.className = snap.metadata.fromCache ? 'badge bg-secondary me-2' : 'badge bg-success me-2';
-        el.innerHTML = snap.metadata.fromCache ? '<i class="bi bi-wifi-off"></i> Offline' : '<i class="bi bi-wifi"></i> Live';
+        el.className = 'badge bg-success me-2';
+        el.innerHTML = '<i class="bi bi-wifi"></i> Live';
         appData.emps = snap.docs.map(d => d.data());
         renderEmps();
+        renderExamTargetEmps();
+      }, () => {
+        const el = document.getElementById('connStatus');
+        el.className = 'badge bg-secondary me-2';
+        el.innerHTML = '<i class="bi bi-wifi-off"></i> Offline';
       });
 
       db.collection('departments').onSnapshot(snap => {
@@ -487,14 +543,18 @@
       db.collection('tms_settings').onSnapshot(snap => {
         appData.settingsDocs = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
         appData.settings.departments = {};
+        appData.settings.leaveTypes = [];
         const reserved = ['Office Lat', 'Office Lng', 'Geo Radius', 'Work Start', 'Work End', 'Leave Type', 'System Type'];
         appData.settingsDocs.forEach(r => {
-          if (!reserved.includes(r.category)) {
+          if (r.category === 'Leave Type') {
+            appData.settings.leaveTypes.push({ name: r.subcategory, allowed_days: Number(r.allowed_days || 0) });
+          } else if (!reserved.includes(r.category)) {
             if (!appData.settings.departments[r.category]) appData.settings.departments[r.category] = [];
             appData.settings.departments[r.category].push(r.subcategory);
           }
         });
         renderAllSettingsTables();
+        renderOpeningLeaveInputs();
       });
 
       db.collection('tms_exams').onSnapshot(snap => {
@@ -502,6 +562,83 @@
         renderExamSessions();
       });
     };
+
+    // Opening Leave Balances Dynamic Inputs
+    function renderOpeningLeaveInputs() {
+      const lTypes = appData.settings.leaveTypes || [];
+      const createBox = document.getElementById('createOpeningLeavesBox');
+      const editBox = document.getElementById('editOpeningLeavesBox');
+
+      if (lTypes.length === 0) {
+        const msg = '<div class="col-12 text-muted small">Leave Type မသတ်မှတ်ရသေးပါ။ (Job & System Settings တက်ဘ်တွင် အရင်ထည့်သွင်းပါ)</div>';
+        createBox.innerHTML = msg;
+        editBox.innerHTML = msg;
+        return;
+      }
+
+      createBox.innerHTML = lTypes.map(lt => `
+        <div class="col-md-3 col-6">
+          <label class="small fw-bold text-secondary">${lt.name} (Default: ${lt.allowed_days}d)</label>
+          <input type="number" step="0.5" min="0" class="form-control form-control-sm border-warning create-open-leave" data-ltype="${lt.name}" value="${lt.allowed_days}">
+        </div>
+      `).join('');
+
+      editBox.innerHTML = lTypes.map(lt => `
+        <div class="col-md-3 col-6">
+          <label class="small fw-bold text-secondary">${lt.name} (Default: ${lt.allowed_days}d)</label>
+          <input type="number" step="0.5" min="0" class="form-control form-control-sm border-warning edit-open-leave" data-ltype="${lt.name}" value="${lt.allowed_days}">
+        </div>
+      `).join('');
+
+      if (document.getElementById('editEmpSelect').value) {
+        fetchEmpData();
+      }
+    }
+
+    // Individual Employee Multi-Select for Exam
+    function renderExamTargetEmps(selectedCodes = ['ALL']) {
+      const box = document.getElementById('exTargetEmpList');
+      const activeList = appData.emps.filter(e => e.status !== 'Inactive');
+      if (activeList.length === 0) {
+        box.innerHTML = '<div class="text-muted small">No active employees found.</div>';
+        return;
+      }
+      const isAll = selectedCodes.includes('ALL');
+      document.getElementById('chkAllEmps').checked = isAll;
+
+      box.innerHTML = activeList.map(e => {
+        const checked = isAll || selectedCodes.includes(e.code) ? 'checked' : '';
+        return `
+          <div class="form-check exam-emp-item py-1 border-bottom" data-search="${(e.code + ' ' + e.name + ' ' + (e.dept || '')).toLowerCase()}">
+            <input class="form-check-input ex-emp-chk" type="checkbox" value="${e.code}" id="exemp_${e.code}" ${checked} onchange="syncSelectAllCheckbox()">
+            <label class="form-check-label small d-flex justify-content-between" for="exemp_${e.code}">
+              <span><b class="text-primary">${e.code}</b> - ${e.name}</span>
+              <span class="text-muted">${e.dept || '-'}</span>
+            </label>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function toggleSelectAllExamEmps(masterChk) {
+      document.querySelectorAll('.ex-emp-chk').forEach(chk => {
+        chk.checked = masterChk.checked;
+      });
+    }
+
+    function syncSelectAllCheckbox() {
+      const allChks = Array.from(document.querySelectorAll('.ex-emp-chk'));
+      const allChecked = allChks.length > 0 && allChks.every(c => c.checked);
+      document.getElementById('chkAllEmps').checked = allChecked;
+    }
+
+    function filterExamTargetEmps() {
+      const q = document.getElementById('empTargetSearch').value.toLowerCase().trim();
+      document.querySelectorAll('.exam-emp-item').forEach(el => {
+        const match = !q || el.getAttribute('data-search').includes(q);
+        el.style.display = match ? '' : 'none';
+      });
+    }
 
     function renderDepts() {
       let mainDepts = [...new Set(appData.depts.map(d => d[0]).filter(Boolean))];
@@ -516,12 +653,6 @@
 
       document.getElementById('mainDeptList').innerHTML = mainDepts.map(d => `<option value="${d}"></option>`).join('');
 
-      let exDeptSel = document.getElementById('exDept');
-      let curExDept = exDeptSel.value || 'ALL';
-      exDeptSel.innerHTML = '<option value="ALL">All Employees (ဌာနအားလုံး)</option>' + mainDepts.map(d => `<option value="${d}">${d}</option>`).join('');
-      exDeptSel.value = curExDept;
-
-      // Render Departments List Table
       const tbody = document.getElementById('deptListBody');
       if (appData.deptDocs.length === 0) {
         tbody.innerHTML = '<tr><td colspan="4" class="text-muted py-2">No departments added yet.</td></tr>';
@@ -544,7 +675,6 @@
       const reserved = ['Office Lat', 'Office Lng', 'Geo Radius', 'Work Start', 'Work End', 'Leave Type', 'System Type'];
       const officeKeys = ['Office Lat', 'Office Lng', 'Geo Radius', 'Work Start', 'Work End'];
 
-      // 1. Job Positions Table
       const posDocs = appData.settingsDocs.filter(r => !reserved.includes(r.category));
       const posBody = document.getElementById('posListBody');
       posBody.innerHTML = posDocs.length === 0
@@ -561,7 +691,6 @@
           </tr>
         `).join('');
 
-      // 2. System Types Table
       const sysDocs = appData.settingsDocs.filter(r => r.category === 'System Type');
       const sysBody = document.getElementById('sysTypeListBody');
       sysBody.innerHTML = sysDocs.length === 0
@@ -578,7 +707,6 @@
           </tr>
         `).join('');
 
-      // 3. Leave Types Table
       const leaveDocs = appData.settingsDocs.filter(r => r.category === 'Leave Type');
       const leaveBody = document.getElementById('leaveTypeListBody');
       leaveBody.innerHTML = leaveDocs.length === 0
@@ -595,7 +723,6 @@
           </tr>
         `).join('');
 
-      // 4. Office Settings Table
       const officeDocs = appData.settingsDocs.filter(r => officeKeys.includes(r.category));
       const officeBody = document.getElementById('officeSettingListBody');
       officeBody.innerHTML = officeDocs.length === 0
@@ -622,9 +749,7 @@
         confirmButtonColor: '#d33',
         confirmButtonText: 'Yes, Delete'
       }).then(res => {
-        if (res.isConfirmed) {
-          db.collection(collectionName).doc(docId).delete();
-        }
+        if (res.isConfirmed) db.collection(collectionName).doc(docId).delete();
       });
     }
 
@@ -848,6 +973,15 @@
       data.dept = data.subDept ? `${data.dept} > ${data.subDept}` : data.dept;
       delete data.subDept;
 
+      // Collect Opening Leave Balances
+      let openingLeaves = {};
+      const selector = action === 'create' ? '.create-open-leave' : '.edit-open-leave';
+      document.querySelectorAll(selector).forEach(inp => {
+        const lType = inp.getAttribute('data-ltype');
+        if (lType) openingLeaves[lType] = Number(inp.value || 0);
+      });
+      data.openingLeaves = openingLeaves;
+
       if (fileInput.files.length > 0) {
         data.photoUrl = await compressImage(fileInput.files[0], 400);
       } else {
@@ -856,11 +990,12 @@
 
       if (action === 'create') {
         data.created_at = Date.now();
-        db.collection('employees').doc(data.code).set(data);
+        await db.collection('employees').doc(data.code).set(data);
         Swal.fire('Success', 'New Employee registered.', 'success');
         form.reset();
+        renderOpeningLeaveInputs();
       } else {
-        db.collection('employees').doc(data.code).update(data);
+        await db.collection('employees').doc(data.code).update(data);
         Swal.fire('Success', 'Employee profile updated.', 'success');
       }
     }
@@ -881,6 +1016,10 @@
         frm.password.value = emp.password || '';
         frm.ssbId.value = emp.ssbId || '';
         frm.taxId.value = emp.taxId || '';
+        frm.joinDate.value = emp.joinDate || '';
+        frm.insPolicyNo.value = emp.insPolicyNo || '';
+        frm.insValidDate.value = emp.insValidDate || '';
+        frm.address.value = emp.address || '';
         frm.bio.value = emp.bio || '';
         frm.dept.value = dParts[0].trim();
         updateSubAndPos(frm.dept, 'edit');
@@ -889,6 +1028,15 @@
         frm.phone.value = emp.phone || '';
         frm.email.value = emp.email || '';
         frm.remark.value = emp.remark || '';
+
+        // Populate Opening Leave Balances for Employee
+        const empOpen = emp.openingLeaves || {};
+        document.querySelectorAll('.edit-open-leave').forEach(inp => {
+          const ltName = inp.getAttribute('data-ltype');
+          const defaultObj = (appData.settings.leaveTypes || []).find(x => x.name === ltName);
+          const defDays = defaultObj ? defaultObj.allowed_days : 0;
+          inp.value = empOpen[ltName] !== undefined ? empOpen[ltName] : defDays;
+        });
 
         let toggle = document.getElementById('statusToggle');
         toggle.checked = (emp.status !== 'Inactive');
@@ -969,23 +1117,19 @@
     function parseCorrectAnswerIndex(rawVal, opts) {
       if (rawVal === undefined || rawVal === null) return 0;
       const str = String(rawVal).trim().toUpperCase();
-      // 1. Check Letter A, B, C, D or OPTION A, OPTION B...
       if (str === 'A' || str === 'OPTION A') return 0;
       if (str === 'B' || str === 'OPTION B') return 1;
       if (str === 'C' || str === 'OPTION C') return 2;
       if (str === 'D' || str === 'OPTION D') return 3;
 
-      // 2. Check Number (1-based: 1=A, 2=B, 3=C, 4=D; or 0 if explicitly 0)
       const num = Number(str);
       if (!isNaN(num)) {
         if (num >= 1 && num <= 4) return num - 1;
         if (num === 0) return 0;
       }
 
-      // 3. Check exact text match against options
       const matchedIdx = opts.findIndex(o => o.toLowerCase() === String(rawVal).trim().toLowerCase());
       if (matchedIdx !== -1) return matchedIdx;
-
       return 0;
     }
 
@@ -1009,11 +1153,7 @@
 
           if (opts.length >= 2) {
             const ansIdx = parseCorrectAnswerIndex(r[5], opts);
-            currentQuestionBank.push({
-              q: firstCell,
-              opts: opts,
-              ans: ansIdx
-            });
+            currentQuestionBank.push({ q: firstCell, opts: opts, ans: ansIdx });
             added++;
           }
         });
@@ -1029,11 +1169,19 @@
       if (currentQuestionBank.length === 0) {
         return Swal.fire('No Questions', 'ကျေးဇူးပြု၍ မေးခွန်းများ အရင်ထည့်သွင်းပါ။', 'warning');
       }
+
+      const isAllChecked = document.getElementById('chkAllEmps').checked;
+      const checkedEmps = Array.from(document.querySelectorAll('.ex-emp-chk:checked')).map(c => c.value);
+      if (!isAllChecked && checkedEmps.length === 0) {
+        return Swal.fire('No Target Selected', 'ကျေးဇူးပြု၍ ဖြေဆိုရမည့် ဝန်ထမ်း အနည်းဆုံး (၁) ဦး ရွေးချယ်ပါ။', 'warning');
+      }
+
+      const targetEmps = isAllChecked ? ['ALL'] : checkedEmps;
       const examId = document.getElementById('exId').value.trim().toUpperCase();
       const payload = {
         exam_id: examId,
         title: document.getElementById('exTitle').value.trim(),
-        target_dept: document.getElementById('exDept').value || 'ALL',
+        target_emps: targetEmps,
         question_count: Number(document.getElementById('exQCount').value),
         points_per_q: Number(document.getElementById('exPoints').value),
         pass_score: Number(document.getElementById('exPass').value),
@@ -1050,6 +1198,7 @@
       document.getElementById('formExamSetup').reset();
       currentQuestionBank = [];
       renderQuestionBankPreview();
+      renderExamTargetEmps(['ALL']);
     }
 
     function editExamSession(examId) {
@@ -1057,12 +1206,15 @@
       if (!ex) return;
       document.getElementById('exId').value = ex.exam_id;
       document.getElementById('exTitle').value = ex.title;
-      document.getElementById('exDept').value = ex.target_dept || 'ALL';
       document.getElementById('exQCount').value = ex.question_count || 20;
       document.getElementById('exPoints').value = ex.points_per_q || 5;
       document.getElementById('exPass').value = ex.pass_score || 50;
       document.getElementById('exTimer').value = ex.time_limit || 0;
       document.getElementById('exStatus').value = ex.status || 'Active';
+
+      const targets = Array.isArray(ex.target_emps) && ex.target_emps.length > 0 ? ex.target_emps : ['ALL'];
+      renderExamTargetEmps(targets);
+
       currentQuestionBank = Array.isArray(ex.questions) ? JSON.parse(JSON.stringify(ex.questions)) : [];
       renderQuestionBankPreview();
     }
@@ -1102,13 +1254,21 @@
         const qPoolLen = Array.isArray(ex.questions) ? ex.questions.length : 0;
         const totalMarks = Number(ex.question_count || 20) * Number(ex.points_per_q || 5);
         const badgeCls = ex.status === 'Active' ? 'bg-success' : 'bg-secondary';
+
+        let targetLabel = 'ALL';
+        if (Array.isArray(ex.target_emps)) {
+          targetLabel = ex.target_emps.includes('ALL') ? 'All Employees' : `${ex.target_emps.length} Selected`;
+        } else if (ex.target_dept) {
+          targetLabel = ex.target_dept;
+        }
+
         return `
           <tr>
             <td class="text-start">
               <div class="fw-bold text-primary">${ex.exam_id}</div>
               <div class="small text-dark">${ex.title}</div>
             </td>
-            <td class="small">${ex.target_dept || 'ALL'}</td>
+            <td class="small"><span class="badge bg-info text-dark">${targetLabel}</span></td>
             <td class="small">
               <div><b>${ex.question_count}</b> / ${qPoolLen} Qs</div>
               <div class="text-muted">${totalMarks} Marks</div>
