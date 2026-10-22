@@ -111,20 +111,6 @@
       border: 1px solid #dee2e6;
       color: #212529;
     }
-    .ut-emblem-box {
-      width: 50px;
-      height: 50px;
-      background: #601a1a;
-      color: #fff;
-      font-weight: 800;
-      font-size: 1.2rem;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-right: 15px;
-      flex-shrink: 0;
-    }
     .ans-review-box {
       border: 1px solid #e2e8f0;
       border-radius: 8px;
@@ -234,17 +220,17 @@
       </div>
     </div>
 
-    <!-- 6. Result & PDF Download Area -->
+    <!-- 6. Result & PDF Download Area (UT Logo ပုံဖြင့်) -->
     <div id="resultSection" style="display:none;">
       <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
         <a href="portal.html" class="btn btn-outline-secondary fw-bold">
           <i class="bi bi-arrow-left"></i> Back to Employee Portal
         </a>
         <div class="d-flex gap-2">
-            <button class="btn btn-danger fw-bold px-4 shadow-sm" onclick="downloadResultPDF()" id="btnDownloadPdf">
+          <button class="btn btn-danger fw-bold px-4 shadow-sm" onclick="downloadResultPDF()" id="btnDownloadPdf">
             <i class="bi bi-file-earmark-pdf-fill"></i> Download PDF
           </button>
-            <button class="btn btn-outline-dark fw-bold" onclick="window.print()" title="Print / Save as PDF">
+          <button class="btn btn-outline-dark fw-bold" onclick="window.print()" title="Print / Save as PDF">
             <i class="bi bi-printer"></i> Print
           </button>
         </div>
@@ -253,7 +239,7 @@
       <div id="pdfResultArea" class="shadow-sm">
         <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3">
           <div class="d-flex align-items-center">
-            <div class="ut-emblem-box">UT</div>
+            <img src="logo.png" alt="UT Logo" crossorigin="anonymous" style="height: 52px; width: auto; margin-right: 15px; border-radius: 6px; object-fit: contain;">
             <div>
               <h5 class="fw-bold mb-0" style="color:#601a1a;">Universal Tractor Co., Ltd.</h5>
               <div class="small text-muted">Talent Management System - Official Assessment Report</div>
@@ -297,6 +283,7 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
 
     const urlParams = new URLSearchParams(window.location.search);
     let targetExamId = (urlParams.get('exam_id') || '').trim();
@@ -356,6 +343,14 @@
       await loadExamFlow();
     }
 
+    function isExamAssignedToCandidate(ex) {
+      if (Array.isArray(ex.target_emps) && ex.target_emps.length > 0) {
+        if (ex.target_emps.includes('ALL')) return true;
+        return ex.target_emps.some(c => String(c).trim().toUpperCase() === String(currentEmp.code).trim().toUpperCase());
+      }
+      return true;
+    }
+
     async function loadExamFlow() {
       const resSnap = await db.collection('exam_results').get();
       const myResults = resSnap.docs
@@ -367,13 +362,14 @@
         document.getElementById('examListBox').style.display = 'block';
         const listEl = document.getElementById('availableExamsList');
 
-        if (exSnap.empty) {
-          listEl.innerHTML = '<div class="text-muted py-3">လက်ရှိတွင် ဖြေဆိုရန် စာမေးပွဲ မရှိသေးပါ။</div>';
+        const assignedDocs = exSnap.docs.map(d => d.data()).filter(ex => isExamAssignedToCandidate(ex));
+
+        if (assignedDocs.length === 0) {
+          listEl.innerHTML = '<div class="text-muted py-3">လက်ရှိတွင် သင်ဖြေဆိုရန် သတ်မှတ်ထားသော စာမေးပွဲ မရှိသေးပါ။</div>';
           return;
         }
 
-        listEl.innerHTML = exSnap.docs.map(doc => {
-          const ex = doc.data();
+        listEl.innerHTML = assignedDocs.map(ex => {
           const done = myResults.find(r => String(r.exam_id).trim().toUpperCase() === String(ex.exam_id).trim().toUpperCase());
           const totalMarks = Number(ex.question_count || 20) * Number(ex.points_per_q || 5);
           return `
@@ -664,7 +660,7 @@
         margin: [10, 10, 10, 10],
         filename: `UT_Exam_Result_${empCode}_${examId}.pdf`,
         image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: { scale: 1.5, scrollY: 0, logging: false },
+        html2canvas: { scale: 1.5, useCORS: true, scrollY: 0, logging: false },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
         pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
       };
