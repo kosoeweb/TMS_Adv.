@@ -43,10 +43,9 @@
         <div id="profDept" class="text-muted small"></div>
         <div class="mt-1 d-flex flex-wrap gap-1">
           <span id="profCodeBadge" class="badge bg-secondary"></span>
+          <span id="profJoinBadge" class="badge bg-light text-dark border"></span>
           <span id="profNrcBadge" class="badge bg-light text-dark border"></span>
-          <span id="profFatherBadge" class="badge bg-light text-dark border"></span>
-          <span id="profSsbBadge" class="badge bg-light text-dark border"></span>
-          <span id="profTaxBadge" class="badge bg-light text-dark border"></span>
+          <span id="profInsBadge" class="badge bg-light text-dark border"></span>
         </div>
       </div>
     </div>
@@ -86,7 +85,7 @@
         </div>
       </div>
 
-      <!-- Leave Tab -->
+      <!-- Leave Tab (Medical Certificate Attachment ဖယ်ရှားထားပြီး) -->
       <div class="tab-pane fade" id="leaveTab">
         <div class="card p-3 shadow-sm border-0 border-top border-warning border-4">
           <h6 class="fw-bold mb-3 text-secondary">Leave Application</h6>
@@ -100,10 +99,6 @@
           </div>
           <div class="mb-3"><label class="small fw-bold">Total Days</label><input type="number" id="lDays" class="form-control bg-light" readonly></div>
           <div class="mb-3"><label class="small fw-bold">Reason</label><textarea id="lReason" class="form-control" rows="2"></textarea></div>
-          <div class="mb-3" id="photoUploadBox" style="display:none;">
-            <label class="small fw-bold text-danger"><i class="bi bi-file-medical"></i> Medical Certificate (Required)</label>
-            <input type="file" id="lPhoto" class="form-control" accept="image/*">
-          </div>
           <button class="btn btn-warning w-100 fw-bold shadow-sm" id="btnLeave" onclick="submitLeave()">Submit Application</button>
         </div>
       </div>
@@ -172,6 +167,7 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
     db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
 
     const loggedEmpCode = (localStorage.getItem('ut_emp_code') || '').trim();
@@ -185,29 +181,31 @@
     let examsLoaded = false, resultsLoaded = false, lastPopupKey = '';
     let cLat = 0, cLng = 0, isGeoOK = false, cTimeStatus = "";
 
-    function updateStatusBadge(fromCache = !navigator.onLine, hasPending = false) {
-      const el = document.getElementById('connStatus');
-      if (hasPending) {
-        el.className = 'badge bg-warning text-dark';
-        el.innerHTML = '<i class="bi bi-cloud-arrow-up"></i> Syncing...';
-      } else if (!navigator.onLine || fromCache) {
-        el.className = 'badge bg-secondary';
-        el.innerHTML = '<i class="bi bi-wifi-off"></i> Offline';
-      } else {
-        el.className = 'badge bg-success';
-        el.innerHTML = '<i class="bi bi-wifi"></i> Live';
+    function getEmpOpeningQuota(leaveType) {
+      if (currentEmp && currentEmp.openingLeaves && currentEmp.openingLeaves[leaveType] !== undefined && currentEmp.openingLeaves[leaveType] !== '') {
+        return Number(currentEmp.openingLeaves[leaveType]);
       }
+      return Number(leaveTypesMap[leaveType] || 0);
     }
-    window.addEventListener('online', () => updateStatusBadge(false));
-    window.addEventListener('offline', () => updateStatusBadge(true));
+
+    function refreshLeaveDropdown() {
+      const lSel = document.getElementById('leaveType');
+      const curVal = lSel.value;
+      lSel.innerHTML = '<option value="">Select Leave Type...</option>' +
+        Object.keys(leaveTypesMap).map(t => `<option value="${t}">${t} (Opening Quota: ${getEmpOpeningQuota(t)} Days)</option>`).join('');
+      lSel.value = curVal;
+      checkLeaveType();
+    }
 
     window.onload = () => {
-      // 1. Employee Profile Listener (Matches by code regardless of doc ID casing)
-      db.collection('employees').onSnapshot({ includeMetadataChanges: true }, snap => {
-        updateStatusBadge(snap.metadata.fromCache, snap.metadata.hasPendingWrites);
+      // 1. Employee Profile Listener
+      db.collection('employees').onSnapshot(snap => {
+        document.getElementById('connStatus').className = 'badge bg-success';
+        document.getElementById('connStatus').innerHTML = '<i class="bi bi-wifi"></i> Live';
+
         const found = snap.docs.map(d => d.data()).find(e => String(e.code).trim().toUpperCase() === loggedEmpCode.toUpperCase());
         if (!found || found.status === 'Inactive') {
-          if (!snap.metadata.fromCache && snap.docs.length > 0) logoutEmp();
+          if (snap.docs.length > 0) logoutEmp();
           return;
         }
         currentEmp = found;
@@ -215,13 +213,15 @@
         document.getElementById('profPos').innerText = currentEmp.position || 'Position Not Set';
         document.getElementById('profDept').innerText = currentEmp.dept ? currentEmp.dept.replace('>', '-') : '';
         document.getElementById('profCodeBadge').innerText = "ID: " + currentEmp.code;
+        document.getElementById('profJoinBadge').innerText = "Join: " + (currentEmp.joinDate || '-');
         document.getElementById('profNrcBadge').innerText = "NRC: " + (currentEmp.nrc || '-');
-        document.getElementById('profFatherBadge').innerText = "Father: " + (currentEmp.fatherName || '-');
-        document.getElementById('profSsbBadge').innerText = "SSB: " + (currentEmp.ssbId || '-');
-        document.getElementById('profTaxBadge').innerText = "Tax: " + (currentEmp.taxId || '-');
+        document.getElementById('profInsBadge').innerText = "Ins: " + (currentEmp.insPolicyNo || '-') + (currentEmp.insValidDate ? ` (Valid: ${currentEmp.insValidDate})` : '');
+
         let img = document.getElementById('profImg');
         if (currentEmp.photoUrl) { img.src = currentEmp.photoUrl; img.style.display = 'block'; }
         else { img.style.display = 'none'; }
+
+        refreshLeaveDropdown();
         evaluatePendingExams();
       });
 
@@ -235,18 +235,12 @@
           if (systemKeys.includes(r.category)) sysSettings[r.category] = r.subcategory;
           if (r.category === 'Leave Type') leaveTypesMap[r.subcategory] = Number(r.allowed_days || 0);
         });
-        const lSel = document.getElementById('leaveType');
-        const curVal = lSel.value;
-        lSel.innerHTML = '<option value="">Select Leave Type...</option>' +
-          Object.keys(leaveTypesMap).map(t => `<option value="${t}">${t} (Allowed: ${leaveTypesMap[t]} Days)</option>`).join('');
-        lSel.value = curVal;
+        refreshLeaveDropdown();
         evaluateAttendanceState();
-        checkLeaveType();
       });
 
       // 3. Attendance, Leave & Records Listeners
-      db.collection('attendance').where('emp_code', '==', loggedEmpCode).onSnapshot({ includeMetadataChanges: true }, snap => {
-        updateStatusBadge(snap.metadata.fromCache, snap.metadata.hasPendingWrites);
+      db.collection('attendance').where('emp_code', '==', loggedEmpCode).onSnapshot(snap => {
         myAttList = snap.docs.map(d => d.data());
         evaluateAttendanceState();
         renderMyLedger();
@@ -280,20 +274,22 @@
     };
 
     // ==================== PENDING EXAM POP-UP & TAB LOGIC ====================
+    function isExamAssignedToMe(ex) {
+      if (String(ex.status || 'Active').toLowerCase() !== 'active') return false;
+      if (Array.isArray(ex.target_emps) && ex.target_emps.length > 0) {
+        if (ex.target_emps.includes('ALL')) return true;
+        return ex.target_emps.some(code => String(code).trim().toUpperCase() === loggedEmpCode.toUpperCase());
+      }
+      const targetDept = String(ex.target_dept || 'ALL').trim();
+      if (!targetDept || targetDept.toUpperCase() === 'ALL') return true;
+      return String(currentEmp?.dept || '').toLowerCase().includes(targetDept.toLowerCase());
+    }
+
     function evaluatePendingExams() {
       if (!currentEmp || !examsLoaded || !resultsLoaded) return;
 
-      const empDeptStr = String(currentEmp.dept || '').toLowerCase();
+      const assignedActiveExams = allExams.filter(ex => isExamAssignedToMe(ex));
 
-      // Active ဖြစ်ပြီး ဝန်ထမ်းဌာနနှင့် သက်ဆိုင်သော စာမေးပွဲများကို စစ်ထုတ်ခြင်း
-      const assignedActiveExams = allExams.filter(ex => {
-        if (String(ex.status || 'Active').toLowerCase() !== 'active') return false;
-        const target = String(ex.target_dept || 'ALL').trim();
-        if (!target || target.toUpperCase() === 'ALL') return true;
-        return empDeptStr.includes(target.toLowerCase());
-      });
-
-      // မဖြေဆိုရသေးသော စာမေးပွဲများကို ရှာဖွေခြင်း
       const pendingExams = assignedActiveExams.filter(ex => {
         return !myExamResults.some(r => String(r.exam_id).trim().toUpperCase() === String(ex.exam_id).trim().toUpperCase());
       });
@@ -318,7 +314,6 @@
           </div>
         `;
 
-        // မဖြေရသေးသော စာမေးပွဲရှိပါက Pop-up Message နှင့် တိုက်ရိုက် Link ပြသခြင်း
         const currentPopupKey = pendingExams.map(e => e.exam_id).sort().join(',');
         if (lastPopupKey !== currentPopupKey) {
           lastPopupKey = currentPopupKey;
@@ -351,7 +346,6 @@
         banner.style.display = 'none';
       }
 
-      // Render Exams Tab
       const container = document.getElementById('myExamsContainer');
       let html = '';
 
@@ -481,23 +475,22 @@
         created_at: Date.now()
       };
       db.collection('attendance').add(payload);
-      Swal.fire("Recorded", `${type} saved (${navigator.onLine ? 'Online' : 'Offline Queued'}).`, "success");
+      Swal.fire("Recorded", `${type} saved.`, "success");
     }
 
     function checkLeaveType() {
       let type = document.getElementById('leaveType').value;
-      document.getElementById('photoUploadBox').style.display = type.toLowerCase().includes('medical') ? 'block' : 'none';
       let infoBox = document.getElementById('leaveQuotaInfo');
       if (!type) { infoBox.style.display = 'none'; return; }
 
-      let allowed = leaveTypesMap[type] || 0;
+      let allowed = getEmpOpeningQuota(type);
       let used = myLeaveList
         .filter(l => l.leave_type === type && l.status === 'Approved')
         .reduce((sum, l) => sum + Number(l.total_days || 0), 0);
       let rem = Math.max(0, allowed - used);
 
       infoBox.style.display = 'block';
-      infoBox.innerHTML = `<strong>${type}:</strong> ခွင့်ပြုရက် <b>${allowed}</b> ရက် | ယူပြီး <b>${used}</b> ရက် | လက်ကျန် <b>${rem}</b> ရက်`;
+      infoBox.innerHTML = `<strong>${type}:</strong> အဖွင့်လက်ကျန် <b>${allowed}</b> ရက် | ယူပြီး <b>${used}</b> ရက် | လက်ကျန် <b>${rem}</b> ရက်`;
     }
 
     function calcDays() {
@@ -506,36 +499,13 @@
       document.getElementById('lDays').value = (d1 && d2 && d2 >= d1) ? Math.ceil(Math.abs(d2 - d1) / 86400000) + 1 : '';
     }
 
-    function compressImage(file, maxWidth = 600) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = e => {
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const scale = maxWidth / img.width;
-            canvas.width = img.width > maxWidth ? maxWidth : img.width;
-            canvas.height = img.width > maxWidth ? img.height * scale : img.height;
-            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-            resolve(canvas.toDataURL('image/jpeg', 0.7));
-          };
-          img.src = e.target.result;
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-    }
-
     async function submitLeave() {
       let type = document.getElementById('leaveType').value;
       let start = document.getElementById('lStart').value;
       let days = Number(document.getElementById('lDays').value);
       let reason = document.getElementById('lReason').value;
-      let fileIn = document.getElementById('lPhoto');
-      let isMed = type.toLowerCase().includes('medical');
 
       if (!type || !start || !days) return Swal.fire("Incomplete", "Please fill required fields.", "warning");
-      if (isMed && fileIn.files.length === 0) return Swal.fire("Required", "Please attach a Medical Certificate.", "warning");
 
       let payload = {
         apply_date: new Date().toLocaleString('en-GB').split(',')[0].trim(),
@@ -550,10 +520,9 @@
         created_at: Date.now()
       };
 
-      if (isMed) payload.photoUrl = await compressImage(fileIn.files[0], 600);
       db.collection('leave').add(payload);
       Swal.fire("Submitted", "Leave application submitted.", "success");
-      ['lStart', 'lEnd', 'lDays', 'lReason', 'lPhoto'].forEach(id => document.getElementById(id).value = '');
+      ['lStart', 'lEnd', 'lDays', 'lReason'].forEach(id => document.getElementById(id).value = '');
     }
 
     function renderMyLedger() {
