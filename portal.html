@@ -177,12 +177,23 @@
     let currentEmp = null;
     let sysSettings = {};
     let leaveTypesMap = {};
+    let attendanceRules = [];
     let myAttList = [], myLeaveList = [], myRecList = [];
     let allExams = [], myExamResults = [];
     let attLoaded = false, examsLoaded = false, resultsLoaded = false, lastPopupKey = '';
-    let cLat = 0, cLng = 0, cDist = 0, hasGeoFix = false, isGeoOK = false, cTimeStatus = "";
+    let cLat = 0, cLng = 0, cDist = 0, hasGeoFix = false, isGeoOK = false;
 
-    // ယနေ့ရက်စွဲကို DD/MM/YYYY ပုံစံအတိအကျ ထုတ်ပေးသည့် Function
+    // Default Fallback Rules (Setting Page တွင် မထည့်ရသေးပါက အသုံးပြုရန်)
+    const defaultAttendanceRules = [
+      { action_type: 'Check-In', min_mins: -999, max_mins: 5, subcategory: 'On Time', color_class: 'text-success', show_mins: false },
+      { action_type: 'Check-In', min_mins: 6, max_mins: 15, subcategory: 'Small Late', color_class: 'text-warning', show_mins: true },
+      { action_type: 'Check-In', min_mins: 16, max_mins: 240, subcategory: 'Big Late', color_class: 'text-danger', show_mins: true },
+      { action_type: 'Check-In', min_mins: 241, max_mins: 999, subcategory: 'Half day', color_class: 'text-danger', show_mins: false },
+      { action_type: 'Check-Out', min_mins: -999, max_mins: -1, subcategory: 'Early check out', color_class: 'text-warning', show_mins: false },
+      { action_type: 'Check-Out', min_mins: 0, max_mins: 59, subcategory: 'On Time', color_class: 'text-success', show_mins: false },
+      { action_type: 'Check-Out', min_mins: 60, max_mins: 999, subcategory: 'Overtime', color_class: 'text-primary', show_mins: true }
+    ];
+
     function getTodayStr() {
       const d = new Date();
       const dd = String(d.getDate()).padStart(2, '0');
@@ -191,22 +202,17 @@
       return `${dd}/${mm}/${yyyy}`;
     }
 
-    // မှတ်တမ်းတစ်ခုသည် ယနေ့မှတ်တမ်း ဟုတ်/မဟုတ် စစ်ဆေးခြင်း (date_str ရော created_at ပါ စစ်ဆေးသည်)
     function isRecordFromToday(rec) {
       const todayStr = getTodayStr();
       const rawDate = String(rec.date_str || '').split(',')[0].trim();
-
-      // 1. DD/MM/YYYY တိုက်ရိုက်တူညီမှု စစ်ဆေးခြင်း
       if (rawDate === todayStr) return true;
 
-      // 2. 0 ပါသည်/မပါသည် ကွဲလွဲမှုရှိလျှင် စစ်ဆေးခြင်း (ဥပမာ 2/10/2026 vs 02/10/2026)
       const parts = rawDate.split('/');
       if (parts.length === 3) {
         const norm = `${String(parts[0]).padStart(2, '0')}/${String(parts[1]).padStart(2, '0')}/${parts[2]}`;
         if (norm === todayStr) return true;
       }
 
-      // 3. created_at timestamp သည် ယနေ့အတွင်း ဖြစ်နေခြင်း ရှိ/မရှိ စစ်ဆေးခြင်း
       if (rec.created_at) {
         const recDate = new Date(Number(rec.created_at));
         const now = new Date();
@@ -221,24 +227,69 @@
       return false;
     }
 
-    // ယနေ့ Check-In / Check-Out ဝင်ထားပြီးသား ဟုတ်/မဟုတ် Database + LocalStorage နှစ်ခုလုံးမှ စစ်ဆေးခြင်း
     function getTodayAttendanceStatus() {
       const todayKey = getTodayStr();
       const empKey = (currentEmp ? currentEmp.code : loggedEmpCode).toUpperCase();
-      const localLock = JSON.parse(localStorage.getItem(`ut_att_${empKey}_${todayKey}`) || '{"in":false,"out":false}');
+      const localLock = JSON.parse(localStorage.getItem(`ut_att_${empKey}_${todayKey}`) || '{"in":false,"out":false,"inStatus":"","outStatus":""}');
 
-      let status = { in: Boolean(localLock.in), out: Boolean(localLock.out) };
+      let status = {
+        in: Boolean(localLock.in),
+        out: Boolean(localLock.out),
+        inStatus: localLock.inStatus || '',
+        outStatus: localLock.outStatus || ''
+      };
 
       myAttList.filter(a => isRecordFromToday(a)).forEach(a => {
-        if (a.type === 'Check-In') status.in = true;
-        if (a.type === 'Check-Out') status.out = true;
+        if (a.type === 'Check-In') {
+          status.in = true;
+          status.inStatus = a.time_status || status.inStatus;
+        }
+        if (a.type === 'Check-Out') {
+          status.out = true;
+          status.outStatus = a.time_status || status.outStatus;
+        }
       });
 
-      // Database တွင် တွေ့ရှိပါကလည်း LocalStorage တွင် မှတ်သားထားမည်
       if (status.in || status.out) {
         localStorage.setItem(`ut_att_${empKey}_${todayKey}`, JSON.stringify(status));
       }
       return status;
+    }
+
+    // Setting Page တွင် သတ်မှတ်ထားသော Attendance Rules များအတိုင်း တွက်ချက်ပေးသော Function
+    function getTimeStatusInfo(actionType) {
+      let d = new Date();
+      let nowMins = d.getHours() * 60 + d.getMinutes();
+      let timeString = d.toTimeString().slice(0, 5);
+
+      let wStartMatch = String(sysSettings['Work Start'] || "09:00").match(/(\d+):(\d+)/);
+      let wStartMins = wStartMatch ? parseInt(wStartMatch[1], 10) * 60 + parseInt(wStartMatch[2], 10) : 540;
+
+      let wEndMatch = String(sysSettings['Work End'] || "17:00").match(/(\d+):(\d+)/);
+      let wEndMins = wEndMatch ? parseInt(wEndMatch[1], 10) * 60 + parseInt(wEndMatch[2], 10) : 1020;
+
+      let baseMins = actionType === 'Check-In' ? wStartMins : wEndMins;
+      let diffMins = nowMins - baseMins;
+
+      let activeRules = (attendanceRules.length > 0 ? attendanceRules : defaultAttendanceRules)
+        .filter(r => r.action_type === actionType)
+        .sort((a, b) => Number(a.min_mins) - Number(b.min_mins));
+
+      for (let rule of activeRules) {
+        if (diffMins >= Number(rule.min_mins) && diffMins <= Number(rule.max_mins)) {
+          let labelText = rule.subcategory;
+          if (rule.show_mins && diffMins !== 0) {
+            labelText += ` (${Math.abs(diffMins)}m)`;
+          }
+          return {
+            label: labelText,
+            css: `${rule.color_class || 'text-primary'} fw-bold`,
+            timeString
+          };
+        }
+      }
+
+      return { label: "Recorded", css: "text-secondary fw-bold", timeString };
     }
 
     function getEmpOpeningQuota(leaveType) {
@@ -286,21 +337,23 @@
         applyAttendanceUI();
       });
 
-      // 2. Settings Listener
+      // 2. Settings & Dynamic Attendance Rules Listener
       db.collection('tms_settings').onSnapshot(snap => {
         sysSettings = {};
         leaveTypesMap = {};
+        attendanceRules = [];
         let systemKeys = ['Office Lat', 'Office Lng', 'Geo Radius', 'Work Start', 'Work End'];
         snap.docs.forEach(d => {
           let r = d.data();
           if (systemKeys.includes(r.category)) sysSettings[r.category] = r.subcategory;
           if (r.category === 'Leave Type') leaveTypesMap[r.subcategory] = Number(r.allowed_days || 0);
+          if (r.category === 'Attendance Rule') attendanceRules.push(r);
         });
         refreshLeaveDropdown();
         evaluateAttendanceState(true);
       });
 
-      // 3. Attendance Listener (Case-insensitive matching ဖြင့် စစ်ထုတ်သည်)
+      // 3. Attendance Listener
       db.collection('attendance').onSnapshot(snap => {
         myAttList = snap.docs
           .map(d => d.data())
@@ -350,7 +403,7 @@
           cLat = pos.coords.latitude;
           cLng = pos.coords.longitude;
           hasGeoFix = true;
-          applyAttendanceUI(); // GPS ရလာသည့်အချိန်တွင် နောက်ဆုံး Attendance မှတ်တမ်းဖြင့် ပြန်စစ်မည်
+          applyAttendanceUI();
         }, () => {
           document.getElementById('geoStat').innerText = "GPS Access Denied.";
         }, { enableHighAccuracy: true });
@@ -361,13 +414,11 @@
       const btnIn = document.getElementById('btnIn');
       const btnOut = document.getElementById('btnOut');
 
-      // ခလုတ်နှစ်ခုလုံးကို အရင်ပိတ်ထားမည်
       btnIn.disabled = true;
       btnOut.disabled = true;
 
       const status = getTodayAttendanceStatus();
 
-      // ခလုတ်စာသားများကို အခြေအနေအလိုက် ရှင်းလင်းစွာ ပြသခြင်း
       btnIn.innerHTML = status.in
         ? '<i class="bi bi-check-circle-fill"></i> Checked In'
         : '<i class="bi bi-box-arrow-in-right"></i> Check In';
@@ -376,31 +427,21 @@
         ? '<i class="bi bi-check-circle-fill"></i> Checked Out'
         : '<i class="bi bi-box-arrow-right"></i> Check Out';
 
-      let d = new Date();
-      let nowMins = d.getHours() * 60 + d.getMinutes();
-
-      let wStartMatch = String(sysSettings['Work Start'] || "09:00").match(/(\d+):(\d+)/);
-      let wStartMins = wStartMatch ? parseInt(wStartMatch[1], 10) * 60 + parseInt(wStartMatch[2], 10) : 540;
-
-      let wEndMatch = String(sysSettings['Work End'] || "17:00").match(/(\d+):(\d+)/);
-      let wEndMins = wEndMatch ? parseInt(wEndMatch[1], 10) * 60 + parseInt(wEndMatch[2], 10) : 1020;
-
-      let timeString = d.toTimeString().slice(0, 5);
-      let timeLabel = "Completed", timeClass = "text-muted fw-bold";
+      const timeStatEl = document.getElementById('timeStat');
 
       if (!status.in) {
-        if (nowMins <= wStartMins) { timeLabel = "On Time"; timeClass = "text-success fw-bold"; }
-        else if (nowMins > wStartMins + 240) { timeLabel = "Half day"; timeClass = "text-danger fw-bold"; }
-        else { timeLabel = "Late"; timeClass = "text-danger fw-bold"; }
+        const inInfo = getTimeStatusInfo('Check-In');
+        timeStatEl.innerText = `${inInfo.label} (Current: ${inInfo.timeString})`;
+        timeStatEl.className = inInfo.css;
       } else if (status.in && !status.out) {
-        if (nowMins < wEndMins) { timeLabel = "Early check out"; timeClass = "text-warning fw-bold"; }
-        else if (nowMins >= wEndMins + 60) { timeLabel = "Overtime"; timeClass = "text-primary fw-bold"; }
-        else { timeLabel = "On Time"; timeClass = "text-success fw-bold"; }
+        const outInfo = getTimeStatusInfo('Check-Out');
+        const recordedIn = status.inStatus || 'On Time';
+        timeStatEl.innerText = `Checked In: ${recordedIn} | Out Now: ${outInfo.label} (${outInfo.timeString})`;
+        timeStatEl.className = outInfo.css;
+      } else {
+        timeStatEl.innerText = `Completed Today (In: ${status.inStatus || 'On Time'} / Out: ${status.outStatus || 'Done'})`;
+        timeStatEl.className = 'text-muted fw-bold';
       }
-
-      cTimeStatus = timeLabel;
-      document.getElementById('timeStat').innerText = `${timeLabel} (Current: ${timeString})`;
-      document.getElementById('timeStat').className = timeClass;
 
       if (!hasGeoFix) {
         document.getElementById('geoStat').innerHTML = '<span class="spinner-border spinner-border-sm text-primary"></span> Locating GPS...';
@@ -415,7 +456,6 @@
 
       if (isGeoOK) {
         document.getElementById('geoStat').innerHTML = `<span class="text-success fw-bold"><i class="bi bi-check-circle-fill"></i> Inside Zone (${Math.round(cDist)}m)</span>`;
-        // Attendance ဒေတာ ဆွဲယူပြီးချိန် (attLoaded) ဖြစ်မှသာ ခလုတ်ကို ဖွင့်ပေးမည်
         if (attLoaded) {
           if (!status.in) btnIn.disabled = false;
           if (status.in && !status.out) btnOut.disabled = false;
@@ -437,7 +477,6 @@
     async function submitAtt(type) {
       if (!isGeoOK) return Swal.fire("Error", "You must be inside the office zone.", "error");
 
-      // နှိပ်လိုက်သည့်အချိန်တွင် ယနေ့ဝင်ထားပြီးသား ဟုတ်/မဟုတ် ထပ်မံစစ်ဆေးခြင်း
       const currentStatus = getTodayAttendanceStatus();
       if (type === 'Check-In' && currentStatus.in) {
         applyAttendanceUI();
@@ -448,12 +487,17 @@
         return Swal.fire("Already Checked Out", "ယနေ့အတွက် Check-Out ထွက်ထားပြီးသား ဖြစ်ပါသည်။", "warning");
       }
 
-      // ချက်ချင်း LocalStorage တွင် Lock ချပြီး ခလုတ်ကို ပိတ်ထားမည်
+      // Setting Rules မှတစ်ဆင့် လက်ရှိ Action (Check-In သို့မဟုတ် Check-Out) ၏ Status ကို အရင်တွက်ချက်ယူမည်
+      const actionTimeInfo = getTimeStatusInfo(type);
+      const recordedStatusLabel = actionTimeInfo.label;
+
       const todayStr = getTodayStr();
       const empKey = (currentEmp ? currentEmp.code : loggedEmpCode).toUpperCase();
       const updatedStatus = {
         in: type === 'Check-In' ? true : currentStatus.in,
-        out: type === 'Check-Out' ? true : currentStatus.out
+        out: type === 'Check-Out' ? true : currentStatus.out,
+        inStatus: type === 'Check-In' ? recordedStatusLabel : currentStatus.inStatus,
+        outStatus: type === 'Check-Out' ? recordedStatusLabel : currentStatus.outStatus
       };
       localStorage.setItem(`ut_att_${empKey}_${todayStr}`, JSON.stringify(updatedStatus));
       applyAttendanceUI();
@@ -466,12 +510,12 @@
         type: type,
         location: `${cLat}, ${cLng}`,
         geo_status: "Inside Zone",
-        time_status: cTimeStatus,
+        time_status: recordedStatusLabel,
         created_at: Date.now()
       };
 
       await db.collection('attendance').add(payload);
-      Swal.fire("Recorded", `${type} saved successfully.`, "success");
+      Swal.fire("Recorded", `${type} (${recordedStatusLabel}) saved successfully.`, "success");
     }
 
     // ==================== PENDING EXAM POP-UP & TAB LOGIC ====================
@@ -490,7 +534,6 @@
       if (!currentEmp || !examsLoaded || !resultsLoaded) return;
 
       const assignedActiveExams = allExams.filter(ex => isExamAssignedToMe(ex));
-
       const pendingExams = assignedActiveExams.filter(ex => {
         return !myExamResults.some(r => String(r.exam_id).trim().toUpperCase() === String(ex.exam_id).trim().toUpperCase());
       });
@@ -711,7 +754,7 @@
 
       document.getElementById('myLedgerBody').innerHTML = filtered.map(d => {
         let statClass = (d.status.includes('Late') || d.status.includes('Half') || d.status.includes('-')) ? 'text-danger fw-bold' : 'text-success fw-bold';
-        if (d.status.includes('Pending')) statClass = 'text-warning fw-bold';
+        if (d.status.includes('Small Late') || d.status.includes('Pending') || d.status.includes('Early')) statClass = 'text-warning fw-bold';
         return `<tr><td class="small text-nowrap">${d.dateStr}</td><td>${d.typeHtml}</td><td class="small text-start">${d.details}</td><td class="${statClass} small text-nowrap">${d.status}</td></tr>`;
       }).join('');
     }
