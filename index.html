@@ -15,7 +15,7 @@
     .navbar { background: #601a1a !important; }
     .card { border: none; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
     .q-preview-box { max-height: 320px; overflow-y: auto; background: #fff; border: 1px solid #dee2e6; border-radius: 6px; padding: 12px; }
-    .setting-list-box { max-height: 220px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 6px; background: #fff; }
+    .setting-list-box { max-height: 240px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 6px; background: #fff; }
     .emp-multi-box { max-height: 180px; overflow-y: auto; background: #fff; border: 1px solid #ced4da; border-radius: 6px; padding: 8px 12px; }
   </style>
 </head>
@@ -75,20 +75,17 @@
               <div class="col-md-3"><label class="fw-bold">Phone</label><input type="text" class="form-control" name="phone"></div>
               <div class="col-md-3"><label class="fw-bold">Email</label><input type="email" class="form-control" name="email"></div>
 
-              <!-- Join Date, Insurance Policy No, Valid Date, SSB, Tax ID -->
               <div class="col-md-3"><label class="fw-bold text-success">Join Date (အလုပ်ဝင်ရက်)</label><input type="date" class="form-control border-success" name="joinDate" required></div>
               <div class="col-md-3"><label class="fw-bold text-info text-dark">Insurance Policy No.</label><input type="text" class="form-control border-info" name="insPolicyNo" placeholder="Policy Number"></div>
               <div class="col-md-2"><label class="fw-bold text-info text-dark">Insurance Valid Date</label><input type="date" class="form-control border-info" name="insValidDate"></div>
               <div class="col-md-2"><label class="fw-bold text-primary">SSB ID</label><input type="text" class="form-control border-primary" name="ssbId" placeholder="SSB No."></div>
               <div class="col-md-2"><label class="fw-bold text-primary">Tax ID</label><input type="text" class="form-control border-primary" name="taxId" placeholder="Tax No."></div>
 
-              <!-- Address -->
               <div class="col-md-12">
                 <label class="fw-bold">Address (နေရပ်လိပ်စာ)</label>
                 <input type="text" class="form-control" name="address" placeholder="အပြည့်အစုံ ရေးသွင်းရန်...">
               </div>
 
-              <!-- Opening Leave Balances -->
               <div class="col-md-12">
                 <div class="p-3 bg-light border border-warning rounded">
                   <label class="fw-bold text-dark mb-2"><i class="bi bi-calendar2-check text-warning"></i> Opening Leave Balances (ဝန်ထမ်းအတွက် လက်ကျန်ခွင့် အဖွင့်ရက်များ သတ်မှတ်ရန်)</label>
@@ -144,7 +141,6 @@
               <div class="col-md-3"><label class="fw-bold text-primary">SSB ID</label><input type="text" class="form-control border-primary" name="ssbId"></div>
               <div class="col-md-3"><label class="fw-bold text-primary">Tax ID</label><input type="text" class="form-control border-primary" name="taxId"></div>
 
-              <!-- Join Date, Insurance Policy No, Valid Date, Photo -->
               <div class="col-md-3"><label class="fw-bold text-success">Join Date (အလုပ်ဝင်ရက်)</label><input type="date" class="form-control border-success" name="joinDate"></div>
               <div class="col-md-3"><label class="fw-bold text-info text-dark">Insurance Policy No.</label><input type="text" class="form-control border-info" name="insPolicyNo"></div>
               <div class="col-md-2"><label class="fw-bold text-info text-dark">Insurance Valid Date</label><input type="date" class="form-control border-info" name="insValidDate"></div>
@@ -155,13 +151,11 @@
               </div>
               <div class="col-md-2"><label class="fw-bold">Update Photo</label><input type="file" class="form-control" id="editPhotoFile" accept="image/*"></div>
 
-              <!-- Address -->
               <div class="col-md-12">
                 <label class="fw-bold">Address (နေရပ်လိပ်စာ)</label>
                 <input type="text" class="form-control" name="address" placeholder="အပြည့်အစုံ ရေးသွင်းရန်...">
               </div>
 
-              <!-- Opening Leave Balances -->
               <div class="col-md-12">
                 <div class="p-3 bg-light border border-warning rounded">
                   <label class="fw-bold text-dark mb-2"><i class="bi bi-calendar2-check text-warning"></i> Opening Leave Balances (ဝန်ထမ်းအတွက် လက်ကျန်ခွင့် အဖွင့်ရက်များ ပြင်ဆင်ရန်)</label>
@@ -309,7 +303,7 @@
           </div>
 
           <!-- (5) Office GPS & Work Time Settings -->
-          <div class="card border p-3 bg-light">
+          <div class="card border p-3 mb-4 bg-light">
             <h6 class="fw-bold text-dark mb-3"><i class="bi bi-geo-alt-fill text-info"></i> 5. Office GPS & Work Time Settings</h6>
             <form onsubmit="addSystemSetting(event)" class="mb-3">
               <input type="hidden" id="editOfficeDocId">
@@ -344,9 +338,82 @@
             </div>
           </div>
 
+          <!-- (6) Attendance Time Status Rules (Check-In / Check-Out သတ်မှတ်ချက်များ) -->
+          <div class="card border border-danger p-3 bg-light">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+              <h6 class="fw-bold text-danger mb-0"><i class="bi bi-clock-history"></i> 6. Attendance Time Status Rules (Check-In & Check-Out အချိန်သတ်မှတ်ချက်များ)</h6>
+              <button type="button" class="btn btn-sm btn-outline-danger fw-bold" onclick="loadDefaultTimeRules()">
+                <i class="bi bi-magic"></i> Load Default Rules (စံသတ်မှတ်ချက်များ ထည့်ရန်)
+              </button>
+            </div>
+            <div class="small text-muted mb-3">
+              * <b>Check-In</b> သည် <code>Work Start</code> အချိန်မှ စတင်တွက်ချက်ပြီး၊ <b>Check-Out</b> သည် <code>Work End</code> အချိန်မှ စတင်တွက်ချက်ပါသည်။ (အနှုတ်ဂဏန်း <code>-999</code> သည် သတ်မှတ်ချိန်မတိုင်မီ စောရောက်/စောဆင်းသည့် မိနစ်ဖြစ်ပြီး၊ အပေါင်းဂဏန်းသည် သတ်မှတ်ချိန်ထက် ကျော်လွန်သည့် မိနစ်ဖြစ်ပါသည်။)
+            </div>
+
+            <form id="formTimeRule" onsubmit="saveAttendanceRule(event)" class="mb-3">
+              <input type="hidden" id="editTimeRuleDocId">
+              <div class="row g-2 align-items-end">
+                <div class="col-md-2">
+                  <label class="fw-bold small">Action Type</label>
+                  <select id="trAction" class="form-select form-select-sm border-danger" required>
+                    <option value="Check-In">Check-In</option>
+                    <option value="Check-Out">Check-Out</option>
+                  </select>
+                </div>
+                <div class="col-md-2">
+                  <label class="fw-bold small">From Min (မိနစ်မှ)</label>
+                  <input type="number" id="trMin" class="form-control form-control-sm border-danger" placeholder="e.g. -999 or 6" required>
+                </div>
+                <div class="col-md-2">
+                  <label class="fw-bold small">To Min (မိနစ်အထိ)</label>
+                  <input type="number" id="trMax" class="form-control form-control-sm border-danger" placeholder="e.g. 5 or 15" required>
+                </div>
+                <div class="col-md-2">
+                  <label class="fw-bold small">Status Label (အမည်)</label>
+                  <input type="text" id="trLabel" class="form-control form-control-sm border-danger" placeholder="e.g. Small Late" required>
+                </div>
+                <div class="col-md-2">
+                  <label class="fw-bold small">Badge Color & Mins</label>
+                  <div class="input-group input-group-sm">
+                    <select id="trColor" class="form-select border-danger">
+                      <option value="text-success">Green (On Time)</option>
+                      <option value="text-warning">Yellow (Warning)</option>
+                      <option value="text-danger">Red (Late/Alert)</option>
+                      <option value="text-primary">Blue (Overtime)</option>
+                    </select>
+                    <div class="input-group-text bg-white" title="Show minutes in brackets e.g. Small Late (10m)">
+                      <input class="form-check-input mt-0" type="checkbox" id="trShowMins">
+                      <span class="ms-1 small">+m</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-2 d-flex gap-1">
+                  <button type="submit" id="btnTimeRuleSubmit" class="btn btn-danger btn-sm w-100 fw-bold">Save Rule</button>
+                  <button type="button" id="btnTimeRuleCancel" class="btn btn-secondary btn-sm" style="display:none;" onclick="cancelTimeRuleEdit()">Cancel</button>
+                </div>
+              </div>
+            </form>
+
+            <div class="setting-list-box">
+              <table class="table table-sm table-bordered table-hover mb-0 align-middle text-center small">
+                <thead class="table-dark sticky-top">
+                  <tr>
+                    <th width="8%">#</th>
+                    <th width="16%">Action Type</th>
+                    <th width="22%">Minute Range (Relative to Work Time)</th>
+                    <th width="24%">Status Label</th>
+                    <th width="14%">Show Mins (+m)</th>
+                    <th width="16%">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="timeRuleListBody"></tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
 
-        <!-- ၄။ ONLINE EXAM SETUP (Individual Multi-Select & Removed Guide) -->
+        <!-- ၄။ ONLINE EXAM SETUP -->
         <div class="tab-pane fade" id="examSetup">
           <div class="row g-4">
             <div class="col-lg-7">
@@ -367,7 +434,6 @@
                       <input type="text" id="exTitle" class="form-control border-danger" placeholder="e.g. Supply Chain Management Assessment" required>
                     </div>
 
-                    <!-- Individual Multi-Select Box -->
                     <div class="col-md-12">
                       <div class="d-flex justify-content-between align-items-center mb-1">
                         <label class="fw-bold small text-primary">Target Employees (ဖြေဆိုရမည့် ဝန်ထမ်းများ ရွေးချယ်ရန်)</label>
@@ -412,7 +478,6 @@
 
                   <hr class="my-3">
 
-                  <!-- Question Bank Builder (Excel Import လမ်းညွှန် ဖယ်ရှားထားပြီး) -->
                   <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
                     <h6 class="fw-bold mb-0 text-primary">Question Bank (<span id="qBankCount">0</span> Questions Loaded)</h6>
                     <div class="d-flex flex-wrap gap-2">
@@ -427,7 +492,6 @@
                     </div>
                   </div>
 
-                  <!-- Manual Question Adder -->
                   <div class="card p-2 mb-3 border-primary bg-white">
                     <div class="fw-bold small text-primary mb-2">+ Add Single Question Manually</div>
                     <input type="text" id="mqText" class="form-control form-control-sm mb-2" placeholder="Enter question text...">
@@ -460,7 +524,6 @@
               </div>
             </div>
 
-            <!-- Existing Test Sessions List -->
             <div class="col-lg-5">
               <div class="card border p-3 h-100">
                 <h5 class="fw-bold text-dark mb-3"><i class="bi bi-collection-play"></i> Configured Test Sessions</h5>
@@ -544,7 +607,7 @@
         appData.settingsDocs = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
         appData.settings.departments = {};
         appData.settings.leaveTypes = [];
-        const reserved = ['Office Lat', 'Office Lng', 'Geo Radius', 'Work Start', 'Work End', 'Leave Type', 'System Type'];
+        const reserved = ['Office Lat', 'Office Lng', 'Geo Radius', 'Work Start', 'Work End', 'Leave Type', 'System Type', 'Attendance Rule'];
         appData.settingsDocs.forEach(r => {
           if (r.category === 'Leave Type') {
             appData.settings.leaveTypes.push({ name: r.subcategory, allowed_days: Number(r.allowed_days || 0) });
@@ -563,7 +626,6 @@
       });
     };
 
-    // Opening Leave Balances Dynamic Inputs
     function renderOpeningLeaveInputs() {
       const lTypes = appData.settings.leaveTypes || [];
       const createBox = document.getElementById('createOpeningLeavesBox');
@@ -595,7 +657,6 @@
       }
     }
 
-    // Individual Employee Multi-Select for Exam
     function renderExamTargetEmps(selectedCodes = ['ALL']) {
       const box = document.getElementById('exTargetEmpList');
       const activeList = appData.emps.filter(e => e.status !== 'Inactive');
@@ -621,22 +682,18 @@
     }
 
     function toggleSelectAllExamEmps(masterChk) {
-      document.querySelectorAll('.ex-emp-chk').forEach(chk => {
-        chk.checked = masterChk.checked;
-      });
+      document.querySelectorAll('.ex-emp-chk').forEach(chk => { chk.checked = masterChk.checked; });
     }
 
     function syncSelectAllCheckbox() {
       const allChks = Array.from(document.querySelectorAll('.ex-emp-chk'));
-      const allChecked = allChks.length > 0 && allChks.every(c => c.checked);
-      document.getElementById('chkAllEmps').checked = allChecked;
+      document.getElementById('chkAllEmps').checked = allChks.length > 0 && allChks.every(c => c.checked);
     }
 
     function filterExamTargetEmps() {
       const q = document.getElementById('empTargetSearch').value.toLowerCase().trim();
       document.querySelectorAll('.exam-emp-item').forEach(el => {
-        const match = !q || el.getAttribute('data-search').includes(q);
-        el.style.display = match ? '' : 'none';
+        el.style.display = (!q || el.getAttribute('data-search').includes(q)) ? '' : 'none';
       });
     }
 
@@ -672,12 +729,12 @@
     }
 
     function renderAllSettingsTables() {
-      const reserved = ['Office Lat', 'Office Lng', 'Geo Radius', 'Work Start', 'Work End', 'Leave Type', 'System Type'];
+      const reserved = ['Office Lat', 'Office Lng', 'Geo Radius', 'Work Start', 'Work End', 'Leave Type', 'System Type', 'Attendance Rule'];
       const officeKeys = ['Office Lat', 'Office Lng', 'Geo Radius', 'Work Start', 'Work End'];
 
+      // 1. Job Positions
       const posDocs = appData.settingsDocs.filter(r => !reserved.includes(r.category));
-      const posBody = document.getElementById('posListBody');
-      posBody.innerHTML = posDocs.length === 0
+      document.getElementById('posListBody').innerHTML = posDocs.length === 0
         ? '<tr><td colspan="4" class="text-muted py-2">No job positions added yet.</td></tr>'
         : posDocs.map((r, i) => `
           <tr>
@@ -691,9 +748,9 @@
           </tr>
         `).join('');
 
+      // 2. System Types
       const sysDocs = appData.settingsDocs.filter(r => r.category === 'System Type');
-      const sysBody = document.getElementById('sysTypeListBody');
-      sysBody.innerHTML = sysDocs.length === 0
+      document.getElementById('sysTypeListBody').innerHTML = sysDocs.length === 0
         ? '<tr><td colspan="4" class="text-muted py-2">No custom system types added yet.</td></tr>'
         : sysDocs.map((r, i) => `
           <tr>
@@ -707,9 +764,9 @@
           </tr>
         `).join('');
 
+      // 3. Leave Types
       const leaveDocs = appData.settingsDocs.filter(r => r.category === 'Leave Type');
-      const leaveBody = document.getElementById('leaveTypeListBody');
-      leaveBody.innerHTML = leaveDocs.length === 0
+      document.getElementById('leaveTypeListBody').innerHTML = leaveDocs.length === 0
         ? '<tr><td colspan="4" class="text-muted py-2">No leave types added yet.</td></tr>'
         : leaveDocs.map((r, i) => `
           <tr>
@@ -723,9 +780,9 @@
           </tr>
         `).join('');
 
+      // 4. Office Settings
       const officeDocs = appData.settingsDocs.filter(r => officeKeys.includes(r.category));
-      const officeBody = document.getElementById('officeSettingListBody');
-      officeBody.innerHTML = officeDocs.length === 0
+      document.getElementById('officeSettingListBody').innerHTML = officeDocs.length === 0
         ? '<tr><td colspan="4" class="text-muted py-2">No office GPS/time settings saved yet.</td></tr>'
         : officeDocs.map((r, i) => `
           <tr>
@@ -734,6 +791,31 @@
             <td class="fw-bold">${r.subcategory}</td>
             <td>
               <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" onclick="editOfficeRow('${r.docId}')"><i class="bi bi-pencil"></i></button>
+              <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="deleteDocItem('tms_settings', '${r.docId}')"><i class="bi bi-trash"></i></button>
+            </td>
+          </tr>
+        `).join('');
+
+      // 5. Attendance Time Status Rules
+      const timeRuleDocs = appData.settingsDocs
+        .filter(r => r.category === 'Attendance Rule')
+        .sort((a, b) => {
+          if (a.action_type !== b.action_type) return a.action_type === 'Check-In' ? -1 : 1;
+          return Number(a.min_mins) - Number(b.min_mins);
+        });
+
+      const trBody = document.getElementById('timeRuleListBody');
+      trBody.innerHTML = timeRuleDocs.length === 0
+        ? '<tr><td colspan="6" class="text-muted py-3">သတ်မှတ်ချက် မထည့်ရသေးပါ။ ညာဘက်အပေါ်ရှိ <b>"Load Default Rules"</b> ခလုတ်ကို နှိပ်၍ စံသတ်မှတ်ချက်များ အလွယ်တကူ ထည့်သွင်းနိုင်ပါသည်။</td></tr>'
+        : timeRuleDocs.map((r, i) => `
+          <tr>
+            <td>${i + 1}</td>
+            <td><span class="badge ${r.action_type === 'Check-In' ? 'bg-success' : 'bg-danger'}">${r.action_type}</span></td>
+            <td class="fw-bold">${r.min_mins} mins &nbsp;to&nbsp; ${r.max_mins} mins</td>
+            <td class="fw-bold ${r.color_class || 'text-dark'}">${r.subcategory}</td>
+            <td>${r.show_mins ? '<span class="badge bg-info text-dark">Yes (+m)</span>' : '<span class="text-muted">No</span>'}</td>
+            <td>
+              <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" onclick="editTimeRuleRow('${r.docId}')"><i class="bi bi-pencil"></i></button>
               <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="deleteDocItem('tms_settings', '${r.docId}')"><i class="bi bi-trash"></i></button>
             </td>
           </tr>
@@ -919,6 +1001,86 @@
       document.getElementById('btnOfficeCancel').style.display = 'none';
     }
 
+    // --- 6. Attendance Time Status Rules Add / Edit / Default ---
+    async function saveAttendanceRule(e) {
+      e.preventDefault();
+      const docId = document.getElementById('editTimeRuleDocId').value;
+      const payload = {
+        category: 'Attendance Rule',
+        action_type: document.getElementById('trAction').value,
+        min_mins: Number(document.getElementById('trMin').value),
+        max_mins: Number(document.getElementById('trMax').value),
+        subcategory: document.getElementById('trLabel').value.trim(),
+        color_class: document.getElementById('trColor').value,
+        show_mins: document.getElementById('trShowMins').checked
+      };
+
+      if (payload.min_mins > payload.max_mins) {
+        return Swal.fire('Invalid Range', 'From Min သည် To Min ထက် ငယ်ရပါမည်။', 'warning');
+      }
+
+      if (docId) {
+        await db.collection('tms_settings').doc(docId).update(payload);
+        Swal.fire('Updated', 'Attendance rule updated.', 'success');
+        cancelTimeRuleEdit();
+      } else {
+        await db.collection('tms_settings').add(payload);
+        Swal.fire('Saved', 'Attendance rule added.', 'success');
+        document.getElementById('formTimeRule').reset();
+      }
+    }
+
+    function editTimeRuleRow(docId) {
+      const r = appData.settingsDocs.find(x => x.docId === docId);
+      if (!r) return;
+      document.getElementById('editTimeRuleDocId').value = r.docId;
+      document.getElementById('trAction').value = r.action_type || 'Check-In';
+      document.getElementById('trMin').value = r.min_mins;
+      document.getElementById('trMax').value = r.max_mins;
+      document.getElementById('trLabel').value = r.subcategory || '';
+      document.getElementById('trColor').value = r.color_class || 'text-success';
+      document.getElementById('trShowMins').checked = Boolean(r.show_mins);
+      document.getElementById('btnTimeRuleSubmit').innerText = 'Update Rule';
+      document.getElementById('btnTimeRuleCancel').style.display = 'inline-block';
+    }
+
+    function cancelTimeRuleEdit() {
+      document.getElementById('editTimeRuleDocId').value = '';
+      document.getElementById('formTimeRule').reset();
+      document.getElementById('btnTimeRuleSubmit').innerText = 'Save Rule';
+      document.getElementById('btnTimeRuleCancel').style.display = 'none';
+    }
+
+    async function loadDefaultTimeRules() {
+      const confirmRes = await Swal.fire({
+        title: 'Load Default Time Rules?',
+        text: 'စံသတ်မှတ်ထားသော Check-In (On Time, Small Late, Big Late, Half day) နှင့် Check-Out (Early check out, On Time, Overtime) စည်းမျဉ်းများကို ထည့်သွင်းမည်လား?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#601a1a',
+        confirmButtonText: 'Yes, Load Defaults'
+      });
+      if (!confirmRes.isConfirmed) return;
+
+      const existing = await db.collection('tms_settings').where('category', '==', 'Attendance Rule').get();
+      await Promise.all(existing.docs.map(d => d.ref.delete()));
+
+      const defaults = [
+        { category: 'Attendance Rule', action_type: 'Check-In', min_mins: -999, max_mins: 5, subcategory: 'On Time', color_class: 'text-success', show_mins: false },
+        { category: 'Attendance Rule', action_type: 'Check-In', min_mins: 6, max_mins: 15, subcategory: 'Small Late', color_class: 'text-warning', show_mins: true },
+        { category: 'Attendance Rule', action_type: 'Check-In', min_mins: 16, max_mins: 240, subcategory: 'Big Late', color_class: 'text-danger', show_mins: true },
+        { category: 'Attendance Rule', action_type: 'Check-In', min_mins: 241, max_mins: 999, subcategory: 'Half day', color_class: 'text-danger', show_mins: false },
+        { category: 'Attendance Rule', action_type: 'Check-Out', min_mins: -999, max_mins: -1, subcategory: 'Early check out', color_class: 'text-warning', show_mins: false },
+        { category: 'Attendance Rule', action_type: 'Check-Out', min_mins: 0, max_mins: 59, subcategory: 'On Time', color_class: 'text-success', show_mins: false },
+        { category: 'Attendance Rule', action_type: 'Check-Out', min_mins: 60, max_mins: 999, subcategory: 'Overtime', color_class: 'text-primary', show_mins: true }
+      ];
+
+      for (const item of defaults) {
+        await db.collection('tms_settings').add(item);
+      }
+      Swal.fire('Loaded!', 'Default Attendance Rules (၇) ခုကို ထည့်သွင်းပြီးပါပြီ။ လိုအပ်သလို ပြန်လည်ပြင်ဆင်နိုင်ပါသည်။', 'success');
+    }
+
     function renderEmps() {
       let sel = document.getElementById('editEmpSelect');
       let cur = sel.value;
@@ -973,7 +1135,6 @@
       data.dept = data.subDept ? `${data.dept} > ${data.subDept}` : data.dept;
       delete data.subDept;
 
-      // Collect Opening Leave Balances
       let openingLeaves = {};
       const selector = action === 'create' ? '.create-open-leave' : '.edit-open-leave';
       document.querySelectorAll(selector).forEach(inp => {
@@ -1029,7 +1190,6 @@
         frm.email.value = emp.email || '';
         frm.remark.value = emp.remark || '';
 
-        // Populate Opening Leave Balances for Employee
         const empOpen = emp.openingLeaves || {};
         document.querySelectorAll('.edit-open-leave').forEach(inp => {
           const ltName = inp.getAttribute('data-ltype');
