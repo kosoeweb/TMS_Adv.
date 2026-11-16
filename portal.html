@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
@@ -35,11 +35,14 @@
 
   <div class="container pb-5" style="max-width: 680px;">
 
-    <!-- ဝန်ထမ်း Profile Card -->
+    <!-- Employee Profile Card -->
     <div id="profileBox" class="card p-3 mb-3 align-items-center bg-white rounded border-0 shadow-sm" style="display:flex; flex-direction:row;">
       <img id="profImg" src="" style="width:75px; height:75px; object-fit:cover; border-radius:50%; border: 3px solid #f4f6f9; display:none;">
       <div class="ms-3 flex-grow-1">
-        <h5 id="profName" class="mb-1 fw-bold text-primary">Loading...</h5>
+        <div class="d-flex justify-content-between align-items-start">
+          <h5 id="profName" class="mb-1 fw-bold text-primary">Loading...</h5>
+          <span id="profScoreBadge" class="badge bg-success">Score: 0</span>
+        </div>
         <div id="profPos" class="text-dark fw-bold small mb-1"></div>
         <div id="profDept" class="text-muted small"></div>
         <div class="mt-1 d-flex flex-wrap gap-1">
@@ -51,10 +54,10 @@
       </div>
     </div>
 
-    <!-- ဖြေဆိုရန် ကျန်ရှိနေသော Exam Alert Banner -->
+    <!-- Pending Exam Alert Banner -->
     <div id="pendingExamBanner" class="card p-3 mb-3 shadow-sm pending-exam-banner" style="display:none;"></div>
 
-    <!-- Tabs -->
+    <!-- Navigation Tabs -->
     <ul class="nav nav-pills mb-3 nav-justified bg-white rounded shadow-sm p-1">
       <li class="nav-item"><a class="nav-link active fw-bold" data-bs-toggle="tab" href="#attTab"><i class="bi bi-geo-alt-fill"></i> Attendance</a></li>
       <li class="nav-item"><a class="nav-link fw-bold text-secondary" data-bs-toggle="tab" href="#leaveTab"><i class="bi bi-calendar-event"></i> Leave</a></li>
@@ -121,7 +124,7 @@
           <div class="row g-2 mb-3 bg-light p-2 rounded">
             <div class="col-4">
               <select id="filterMonth" class="form-select form-select-sm" onchange="renderMyLedger()">
-                <option value="">Month</option>
+                <option value="">All Months</option>
                 <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
                 <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
                 <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
@@ -130,8 +133,9 @@
             </div>
             <div class="col-4">
               <select id="filterYear" class="form-select form-select-sm" onchange="renderMyLedger()">
-                <option value="">Year</option>
-                <option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option>
+                <option value="">All Years</option>
+                <option value="2024">2024</option><option value="2025">2025</option>
+                <option value="2026">2026</option><option value="2027">2027</option><option value="2028">2028</option>
               </select>
             </div>
             <div class="col-4">
@@ -140,10 +144,11 @@
                 <option value="Attendance">Attendance</option>
                 <option value="Leave">Leave</option>
                 <option value="Transaction">HR Record</option>
+                <option value="Exam">Online Exam</option>
               </select>
             </div>
           </div>
-          <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+          <div class="table-responsive" style="max-height: 420px; overflow-y: auto;">
             <table class="table table-sm table-bordered table-hover align-middle text-center">
               <thead class="table-dark sticky-top">
                 <tr><th>Date</th><th>Type</th><th>Details</th><th>Status / Pts</th></tr>
@@ -201,13 +206,29 @@
       return `${dd}/${mm}/${yyyy}`;
     }
 
-    // ခွင့်မှတ်တမ်း၏ ခုနှစ်ကို တိကျစွာ ဖတ်ယူပေးသော Helper Function
+    // Unified date parser identical to dashboard.html
+    function parseFlexibleDate(dateStr) {
+      if (!dateStr) return null;
+      const clean = String(dateStr).split(',')[0].trim();
+      if (clean.includes('/')) {
+        const parts = clean.split('/');
+        if (parts.length === 3) {
+          return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+        }
+      }
+      if (clean.includes('-')) {
+        const parts = clean.split('-');
+        if (parts.length === 3) {
+          return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+        }
+      }
+      const d = new Date(clean);
+      return isNaN(d) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+
     function getLeaveRecordYear(leaveRow) {
-      const raw = String(leaveRow.start_date || leaveRow.apply_date || '').split(',')[0].trim();
-      if (raw.includes('-')) return Number(raw.split('-')[0]);
-      if (raw.includes('/')) return Number(raw.split('/')[2]);
-      const d = new Date(raw);
-      return isNaN(d) ? new Date().getFullYear() : d.getFullYear();
+      const dObj = parseFlexibleDate(leaveRow.start_date || leaveRow.apply_date);
+      return dObj ? dObj.getFullYear() : new Date().getFullYear();
     }
 
     function isRecordFromToday(rec) {
@@ -310,13 +331,24 @@
       const lSel = document.getElementById('leaveType');
       const curVal = lSel.value;
       lSel.innerHTML = '<option value="">Select Leave Type...</option>' +
-        Object.keys(leaveTypesMap).map(t => `<option value="${t}">${t} (Opening Quota: ${getEmpOpeningQuota(t)} Days)</option>`).join('');
+        Object.keys(leaveTypesMap).map(t => `<option value="${t}">${t} (Quota: ${getEmpOpeningQuota(t)} Days)</option>`).join('');
       lSel.value = curVal;
       checkLeaveType();
     }
 
+    function updateProfileScoreBadge() {
+      let totalScore = 0;
+      myRecList.forEach(r => {
+        let eff = r.effect || (r.type === 'DEMERIT' ? '-' : (r.type === 'EXAM / TRAINING' ? '0' : '+'));
+        if (eff === '+') totalScore += Number(r.points || 0);
+        else if (eff === '-') totalScore -= Number(r.points || 0);
+      });
+      const badge = document.getElementById('profScoreBadge');
+      badge.innerText = `Score: ${totalScore}`;
+      badge.className = `badge ${totalScore >= 0 ? 'bg-success' : 'bg-danger'}`;
+    }
+
     window.onload = () => {
-      // 1. Employee Profile Listener
       db.collection('employees').onSnapshot(snap => {
         document.getElementById('connStatus').className = 'badge bg-success';
         document.getElementById('connStatus').innerHTML = '<i class="bi bi-wifi"></i> Live';
@@ -344,7 +376,6 @@
         applyAttendanceUI();
       });
 
-      // 2. Settings & Dynamic Attendance Rules Listener
       db.collection('tms_settings').onSnapshot(snap => {
         sysSettings = {};
         leaveTypesMap = {};
@@ -360,7 +391,6 @@
         evaluateAttendanceState(true);
       });
 
-      // 3. Attendance Listener
       db.collection('attendance').onSnapshot(snap => {
         myAttList = snap.docs
           .map(d => d.data())
@@ -382,10 +412,10 @@
         myRecList = snap.docs
           .map(d => d.data())
           .filter(r => String(r.emp_code || '').trim().toUpperCase() === loggedEmpCode.toUpperCase());
+        updateProfileScoreBadge();
         renderMyLedger();
       });
 
-      // 4. Online Exams & Exam Results Listeners
       db.collection('tms_exams').onSnapshot(snap => {
         allExams = snap.docs.map(d => d.data());
         examsLoaded = true;
@@ -398,10 +428,10 @@
           .filter(r => String(r.emp_code).trim().toUpperCase() === loggedEmpCode.toUpperCase());
         resultsLoaded = true;
         evaluatePendingExams();
+        renderMyLedger();
       });
     };
 
-    // ==================== ATTENDANCE UI & GPS STATE LOGIC ====================
     function evaluateAttendanceState(requestNewGps = false) {
       applyAttendanceUI();
 
@@ -487,11 +517,11 @@
       const currentStatus = getTodayAttendanceStatus();
       if (type === 'Check-In' && currentStatus.in) {
         applyAttendanceUI();
-        return Swal.fire("Already Checked In", "ယနေ့အတွက် Check-In ဝင်ထားပြီးသား ဖြစ်ပါသည်။", "warning");
+        return Swal.fire("Already Checked In", "You have already checked in for today.", "warning");
       }
       if (type === 'Check-Out' && currentStatus.out) {
         applyAttendanceUI();
-        return Swal.fire("Already Checked Out", "ယနေ့အတွက် Check-Out ထွက်ထားပြီးသား ဖြစ်ပါသည်။", "warning");
+        return Swal.fire("Already Checked Out", "You have already checked out for today.", "warning");
       }
 
       const actionTimeInfo = getTimeStatusInfo(type);
@@ -524,7 +554,6 @@
       Swal.fire("Recorded", `${type} (${recordedStatusLabel}) saved successfully.`, "success");
     }
 
-    // ==================== PENDING EXAM POP-UP & TAB LOGIC ====================
     function isExamAssignedToMe(ex) {
       if (String(ex.status || 'Active').toLowerCase() !== 'active') return false;
       if (Array.isArray(ex.target_emps) && ex.target_emps.length > 0) {
@@ -555,11 +584,11 @@
         banner.innerHTML = `
           <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
-              <div class="fw-bold text-danger"><i class="bi bi-exclamation-triangle-fill"></i> ဖြေဆိုရန် စာမေးပွဲ (${pendingExams.length}) ခု ကျန်ရှိနေပါသည်!</div>
+              <div class="fw-bold text-danger"><i class="bi bi-exclamation-triangle-fill"></i> You have (${pendingExams.length}) pending assessment(s)!</div>
               <div class="small text-dark">${pendingExams.map(e => e.title).join(', ')}</div>
             </div>
             <a href="exam.html?exam_id=${encodeURIComponent(pendingExams[0].exam_id)}" class="btn btn-danger btn-sm fw-bold px-3 shadow-sm">
-              ယခု ဖြေဆိုမည် <i class="bi bi-arrow-right-circle"></i>
+              Start Now <i class="bi bi-arrow-right-circle"></i>
             </a>
           </div>
         `;
@@ -574,7 +603,7 @@
                 <div class="fw-bold text-primary fs-6">${ex.title}</div>
                 <div class="small text-muted mb-2">Exam ID: <b>${ex.exam_id}</b> | Questions: <b>${ex.question_count}</b> | Total: <b>${totalMarks} Marks</b></div>
                 <a href="exam.html?exam_id=${encodeURIComponent(ex.exam_id)}" class="btn btn-danger w-100 fw-bold py-2">
-                  <i class="bi bi-pencil-square"></i> စာမေးပွဲ ဖြေဆိုရန် နှိပ်ပါ (Start Exam)
+                  <i class="bi bi-pencil-square"></i> Start Assessment Now
                 </a>
               </div>
             `;
@@ -582,11 +611,11 @@
 
           setTimeout(() => {
             Swal.fire({
-              title: 'စာမေးပွဲ ဖြေဆိုရန် ကျန်ရှိနေပါသည်!',
-              html: `<p class="small text-dark mb-3">လူကြီးမင်း ဖြေဆိုရန် သတ်မှတ်ထားသော အောက်ပါ Online Test အား ဝင်ရောက်ဖြေဆိုပေးပါရန် အသိပေးအပ်ပါသည်။</p>${linksHtml}`,
+              title: 'Pending Assessment Assigned!',
+              html: `<p class="small text-dark mb-3">Please complete the following assigned online assessment(s):</p>${linksHtml}`,
               icon: 'warning',
               allowOutsideClick: false,
-              confirmButtonText: 'နောက်မှ ဖြေဆိုမည် (Later)',
+              confirmButtonText: 'Remind Me Later',
               confirmButtonColor: '#6c757d'
             });
           }, 300);
@@ -600,7 +629,7 @@
       let html = '';
 
       if (pendingExams.length > 0) {
-        html += `<div class="fw-bold text-danger small mb-2">Pending Assessments (ဖြေဆိုရန် ကျန်ရှိသော စာမေးပွဲများ)</div>`;
+        html += `<div class="fw-bold text-danger small mb-2">Pending Assessments</div>`;
         pendingExams.forEach(ex => {
           const totalMarks = Number(ex.question_count || 20) * Number(ex.points_per_q || 5);
           html += `
@@ -617,9 +646,9 @@
         });
       }
 
-      html += `<div class="fw-bold text-success small mb-2 mt-3">Completed Assessments (ဖြေဆိုပြီးသော စာမေးပွဲမှတ်တမ်းများ)</div>`;
+      html += `<div class="fw-bold text-success small mb-2 mt-3">Completed Assessments</div>`;
       if (myExamResults.length === 0) {
-        html += `<div class="text-muted small py-3 text-center border rounded bg-light">ဖြေဆိုပြီးသော စာမေးပွဲမှတ်တမ်း မရှိသေးပါ။</div>`;
+        html += `<div class="text-muted small py-3 text-center border rounded bg-light">No completed assessments yet.</div>`;
       } else {
         myExamResults.sort((a, b) => (b.created_at || 0) - (a.created_at || 0)).forEach(res => {
           const badgeCls = res.passed ? 'bg-success' : 'bg-danger';
@@ -646,7 +675,6 @@
       window.location.href = 'login.html';
     }
 
-    // လက်ရှိခုနှစ် (Current Year) အတွင်း ယူထားသော Approved ခွင့်ရက်များကိုသာ နှုတ်ယူတွက်ချက်ခြင်း
     function checkLeaveType() {
       let type = document.getElementById('leaveType').value;
       let infoBox = document.getElementById('leaveQuotaInfo');
@@ -660,7 +688,7 @@
       let rem = Math.max(0, allowed - used);
 
       infoBox.style.display = 'block';
-      infoBox.innerHTML = `<strong>${type} (${currentYear}):</strong> အဖွင့်လက်ကျန် <b>${allowed}</b> ရက် | ယူပြီး <b>${used}</b> ရက် | လက်ကျန် <b>${rem}</b> ရက်`;
+      infoBox.innerHTML = `<strong>${type} (${currentYear}):</strong> Opening: <b>${allowed}</b> Days | Used: <b>${used}</b> Days | Remaining: <b>${rem}</b> Days`;
     }
 
     function calcDays() {
@@ -675,7 +703,7 @@
       let days = Number(document.getElementById('lDays').value);
       let reason = document.getElementById('lReason').value;
 
-      if (!type || !start || !days) return Swal.fire("Incomplete", "Please fill required fields.", "warning");
+      if (!type || !start || !days) return Swal.fire("Incomplete", "Please fill in all required fields.", "warning");
 
       let payload = {
         apply_date: getTodayStr(),
@@ -691,66 +719,87 @@
       };
 
       db.collection('leave').add(payload);
-      Swal.fire("Submitted", "Leave application submitted.", "success");
+      Swal.fire("Submitted", "Leave application submitted successfully.", "success");
       ['lStart', 'lEnd', 'lDays', 'lReason'].forEach(id => document.getElementById(id).value = '');
     }
 
+    // Unified Ledger Rendering (100% synchronized with dashboard.html)
     function renderMyLedger() {
-      function parseDate(dateStr) {
-        let parts = String(dateStr).split(',')[0].split('/');
-        if (parts.length === 3) return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-        return new Date(dateStr);
-      }
-
       let combined = [];
+
+      // 1. Attendance
       myAttList.forEach(a => {
-        let dObj = parseDate(a.date_str);
+        let dObj = parseFlexibleDate(a.date_str);
+        let sortTime = a.created_at || (dObj ? dObj.getTime() : 0);
         combined.push({
-          time: a.created_at || (isNaN(dObj) ? 0 : dObj.getTime()),
-          dateStr: a.date_str + " " + a.time_str,
+          sortTime: sortTime,
+          recordDate: dObj,
+          dateStr: `${a.date_str} ${a.time_str || ''}`.trim(),
           catType: "Attendance",
           typeHtml: '<span class="badge bg-info text-dark">Attendance</span>',
-          details: a.type,
-          status: a.time_status
+          details: `${a.type} (${a.location || '-'})`,
+          status: a.time_status || 'On Time'
         });
       });
 
+      // 2. Leave
       myLeaveList.forEach(l => {
-        let dObj = parseDate(l.apply_date);
+        let dObj = parseFlexibleDate(l.start_date || l.apply_date);
+        let sortTime = l.created_at || (dObj ? dObj.getTime() : 0);
         combined.push({
-          time: l.created_at || (isNaN(dObj) ? 0 : dObj.getTime()),
-          dateStr: l.apply_date,
+          sortTime: sortTime,
+          recordDate: dObj,
+          dateStr: `${l.apply_date} (${l.start_date || ''} ~ ${l.end_date || ''})`,
           catType: "Leave",
           typeHtml: '<span class="badge bg-warning text-dark">Leave</span>',
-          details: `${l.leave_type} (${l.total_days} Days)`,
-          status: l.status
+          details: `${l.leave_type} (${l.total_days} Days) - ${l.reason || ''}`,
+          status: l.status || 'Pending'
         });
       });
 
+      // 3. HR Records (exclude duplicate auto-generated exam rows if shown via exam_results)
       myRecList.forEach(r => {
-        let dObj = parseDate(r.date_str);
+        if (r.type === 'EXAM / TRAINING') return;
+        let dObj = parseFlexibleDate(r.date_str);
+        let sortTime = r.created_at || (dObj ? dObj.getTime() : 0);
         let eff = r.effect || (r.type === 'DEMERIT' ? '-' : '+');
         let badgeColor = eff === '+' ? 'bg-success' : (eff === '-' ? 'bg-danger' : 'bg-secondary');
         combined.push({
-          time: r.created_at || (isNaN(dObj) ? 0 : dObj.getTime()),
+          sortTime: sortTime,
+          recordDate: dObj,
           dateStr: r.date_str,
           catType: "Transaction",
           typeHtml: `<span class="badge ${badgeColor}">${r.type}</span>`,
-          details: r.line_remark || 'Official Record',
+          details: `${r.record_id ? '[' + r.record_id + '] ' : ''}${r.line_remark || 'Official Record'}`,
           status: eff === '0' ? 'Info' : `${eff}${r.points} Pts`
         });
       });
 
-      combined.sort((a, b) => b.time - a.time);
+      // 4. Online Exam Results
+      myExamResults.forEach(x => {
+        let dObj = parseFlexibleDate(x.date_str);
+        let sortTime = x.created_at || (dObj ? dObj.getTime() : 0);
+        combined.push({
+          sortTime: sortTime,
+          recordDate: dObj,
+          dateStr: x.date_str,
+          catType: "Exam",
+          typeHtml: `<span class="badge bg-primary">Online Exam</span>`,
+          details: `${x.exam_id} - ${x.exam_title}`,
+          status: `${x.score}/${x.total_marks} (${x.passed ? 'PASSED' : 'FAILED'})`
+        });
+      });
+
+      combined.sort((a, b) => b.sortTime - a.sortTime);
 
       let fMonth = document.getElementById('filterMonth').value;
       let fYear = document.getElementById('filterYear').value;
       let fStatus = document.getElementById('filterStatus').value;
 
       let filtered = combined.filter(d => {
-        let dObj = new Date(d.time);
-        let matchM = fMonth === "" || (dObj.getMonth() + 1).toString() === fMonth;
-        let matchY = fYear === "" || dObj.getFullYear().toString() === fYear;
+        let dObj = d.recordDate || new Date(d.sortTime);
+        let matchM = fMonth === "" || (dObj && !isNaN(dObj) && (dObj.getMonth() + 1).toString() === fMonth);
+        let matchY = fYear === "" || (dObj && !isNaN(dObj) && dObj.getFullYear().toString() === fYear);
         let matchS = fStatus === "" || d.catType === fStatus;
         return matchM && matchY && matchS;
       });
@@ -761,7 +810,7 @@
       }
 
       document.getElementById('myLedgerBody').innerHTML = filtered.map(d => {
-        let statClass = (d.status.includes('Late') || d.status.includes('Half') || d.status.includes('-')) ? 'text-danger fw-bold' : 'text-success fw-bold';
+        let statClass = (d.status.includes('Late') || d.status.includes('Half') || d.status.includes('-') || d.status.includes('FAILED')) ? 'text-danger fw-bold' : 'text-success fw-bold';
         if (d.status.includes('Small Late') || d.status.includes('Pending') || d.status.includes('Early')) statClass = 'text-warning fw-bold';
         return `<tr><td class="small text-nowrap">${d.dateStr}</td><td>${d.typeHtml}</td><td class="small text-start">${d.details}</td><td class="${statClass} small text-nowrap">${d.status}</td></tr>`;
       }).join('');
