@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -25,17 +25,6 @@
       cursor: pointer;
     }
     .stat-card:hover { transform: translateY(-2px); }
-    .leave-bal-item {
-      background: #f8f9fa;
-      border: 1px solid #dee2e6;
-      border-radius: 6px;
-      padding: 3px 8px;
-      font-size: 0.78rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 6px;
-    }
   </style>
 </head>
 <body>
@@ -80,43 +69,43 @@
 
           <!-- FILTER BAR -->
           <div class="row g-2 mb-3 bg-light p-3 rounded border align-items-end">
-            <!-- 1. Period Mode (Daily / Monthly / Yearly / Custom) -->
+            <!-- 1. Period Mode -->
             <div class="col-md-2">
-              <label class="fw-bold text-dark small"><i class="bi bi-calendar-range text-primary"></i> View Mode (ကာလရွေးရန်)</label>
+              <label class="fw-bold text-dark small"><i class="bi bi-calendar-range text-primary"></i> View Mode</label>
               <select id="filterPeriodMode" class="form-select border-primary fw-bold" onchange="onPeriodModeChange()">
-                <option value="DAILY" selected>နေ့အလိုက် (Daily)</option>
-                <option value="MONTHLY">လအလိုက် (Monthly)</option>
-                <option value="YEARLY">ခုနှစ်အလိုက် (Yearly)</option>
-                <option value="CUSTOM">ရက်အပိုင်းအခြား (Custom)</option>
+                <option value="DAILY" selected>Daily</option>
+                <option value="MONTHLY">Monthly</option>
+                <option value="YEARLY">Yearly</option>
+                <option value="CUSTOM">Custom Range</option>
               </select>
             </div>
 
-            <!-- 2A. Daily Date Picker (Default Today) -->
+            <!-- 2A. Daily Date Picker -->
             <div class="col-md-3" id="boxDailyFilter">
-              <label class="fw-bold text-muted small">Select Date (ရက်စွဲ)</label>
+              <label class="fw-bold text-muted small">Select Date</label>
               <div class="input-group">
                 <input type="date" id="filterDailyDate" class="form-control border-primary" onchange="renderView()">
                 <button class="btn btn-outline-primary fw-bold" type="button" onclick="setTodayDate()" title="Jump to Today">Today</button>
               </div>
             </div>
 
-            <!-- 2B. Monthly Picker (Month + Year) -->
+            <!-- 2B. Monthly Picker -->
             <div class="col-md-3" id="boxMonthlyFilter" style="display:none;">
-              <label class="fw-bold text-muted small">Select Month & Year (လ နှင့် ခုနှစ်)</label>
+              <label class="fw-bold text-muted small">Select Month & Year</label>
               <div class="input-group">
                 <select id="filterMonth" class="form-select border-primary" onchange="renderView()">
-                  <option value="1">January (ဇန်နဝါရီ)</option>
-                  <option value="2">February (ဖေဖော်ဝါရီ)</option>
-                  <option value="3">March (မတ်)</option>
-                  <option value="4">April (ဧပြီ)</option>
-                  <option value="5">May (မေ)</option>
-                  <option value="6">June (ဇွန်)</option>
-                  <option value="7">July (ဇူလိုင်)</option>
-                  <option value="8">August (ဩဂုတ်)</option>
-                  <option value="9">September (စက်တင်ဘာ)</option>
-                  <option value="10">October (အောက်တိုဘာ)</option>
-                  <option value="11">November (နိုဝင်ဘာ)</option>
-                  <option value="12">December (ဒီဇင်ဘာ)</option>
+                  <option value="1">January</option>
+                  <option value="2">February</option>
+                  <option value="3">March</option>
+                  <option value="4">April</option>
+                  <option value="5">May</option>
+                  <option value="6">June</option>
+                  <option value="7">July</option>
+                  <option value="8">August</option>
+                  <option value="9">September</option>
+                  <option value="10">October</option>
+                  <option value="11">November</option>
+                  <option value="12">December</option>
                 </select>
                 <select id="filterMonthYear" class="form-select border-primary" style="max-width: 105px;" onchange="renderView()"></select>
               </div>
@@ -124,7 +113,7 @@
 
             <!-- 2C. Yearly Picker -->
             <div class="col-md-2" id="boxYearlyFilter" style="display:none;">
-              <label class="fw-bold text-muted small">Select Year (ခုနှစ်)</label>
+              <label class="fw-bold text-muted small">Select Year</label>
               <select id="filterYearOnly" class="form-select border-primary" onchange="renderView()"></select>
             </div>
 
@@ -146,19 +135,19 @@
             <div class="col-md-2">
               <label class="fw-bold text-muted small">Attendance / Leave Status</label>
               <select id="filterAttStatus" class="form-select border-primary" onchange="renderView()">
-                <option value="ALL">All Employees (အားလုံး)</option>
-                <option value="PRESENT">Present / Checked-In (ရုံးတက်သူ)</option>
-                <option value="ON_TIME">On Time (အချိန်မှန်သူ)</option>
-                <option value="LATE">Late / Half Day (နောက်ကျသူ)</option>
-                <option value="ON_LEAVE">On Leave (ခွင့်ယူထားသူ)</option>
-                <option value="PENDING_LEAVE">Pending Leave (ခွင့်တင်ထားသူ)</option>
-                <option value="ABSENT">Not Checked-In (မဝင်ရသေးသူ)</option>
+                <option value="ALL">All Employees</option>
+                <option value="PRESENT">Present / Checked-In</option>
+                <option value="ON_TIME">On Time</option>
+                <option value="LATE">Late / Half Day</option>
+                <option value="ON_LEAVE">On Leave</option>
+                <option value="PENDING_LEAVE">Pending Leave</option>
+                <option value="ABSENT">Not Checked-In</option>
               </select>
             </div>
 
             <!-- 4. Employee Search / Drilldown -->
             <div class="col-md-2">
-              <label class="fw-bold text-muted small">Employee (ဝန်ထမ်းရှာရန်)</label>
+              <label class="fw-bold text-muted small">Employee</label>
               <div class="input-group">
                 <input list="empList" id="filterEmp" class="form-control border-primary" placeholder="ID or Name" onchange="renderView()">
                 <button class="btn btn-outline-secondary" type="button" onclick="document.getElementById('filterEmp').value=''; renderView();" title="Clear Employee"><i class="bi bi-x-lg"></i></button>
@@ -230,7 +219,7 @@
               <table class="table table-hover table-bordered table-sm align-middle text-center shadow-sm" id="allEmpSummaryTable">
                 <thead class="table-dark" id="summaryTableThead"></thead>
                 <tbody id="defaultEmpBody">
-                  <tr><td colspan="10" class="py-4 text-muted">Loading Data...</td></tr>
+                  <tr><td colspan="9" class="py-4 text-muted">Loading Data...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -242,7 +231,7 @@
               <div class="card-body d-flex flex-wrap align-items-center">
                 <img id="infoPhoto" src="" style="width:110px; height:110px; object-fit:cover; border-radius:8px; margin-right:25px; display:none;">
                 <div class="flex-grow-1">
-                  <div class="d-flex justify-content-between align-items-center">
+                  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <h4 id="infoName" class="fw-bold text-primary mb-2"></h4>
                     <button class="btn btn-sm btn-outline-secondary fw-bold" onclick="document.getElementById('filterEmp').value=''; renderView();">
                       <i class="bi bi-arrow-left"></i> Back to All Employees
@@ -263,22 +252,25 @@
                     <div class="col-md-3"><strong>Bio/Skills:</strong> <span id="infoBio"></span></div>
                     <div class="col-md-12"><strong>Address:</strong> <span id="infoAddress"></span></div>
                     <div class="col-12 border-top pt-2 mt-2">
-                      <strong class="text-dark d-block mb-1"><i class="bi bi-calendar2-check text-warning"></i> Leave Balances by Type (<span id="infoLeaveYearLabel"></span>):</strong>
+                      <strong class="text-dark d-block mb-1"><i class="bi bi-calendar2-check text-warning"></i> Leave Balances (<span id="infoLeaveYearLabel"></span>):</strong>
                       <div id="infoLeaveBalances" class="d-flex flex-wrap gap-2"></div>
                     </div>
                     <div class="col-12 border-top pt-2 mt-2">
-                      <strong>Total Performance Score (Selected Period):</strong> <span id="infoScore" class="badge bg-success fs-6 me-3"></span>
+                      <strong>Total Performance Score:</strong> <span id="infoScore" class="badge bg-success fs-6 me-3"></span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <h5 class="text-secondary fw-bold">Detailed Employee Ledger (Approve & Select Leave Type)</h5>
+            <div class="d-flex justify-content-between align-items-center flex-wrap mb-2">
+              <h5 class="text-secondary fw-bold mb-0">Detailed Employee Ledger (Approve & Select Leave Type)</h5>
+              <span class="badge bg-secondary" id="empLedgerScopeBadge">Showing: All History (Synced with Portal Ledger)</span>
+            </div>
             <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
               <table class="table table-hover table-bordered table-sm align-middle" id="reportTable">
                 <thead class="table-dark sticky-top">
-                  <tr><th>Date</th><th>Record ID / Type</th><th>Category</th><th>Emp ID & Name</th><th>Department</th><th>Score / Days / Time</th><th>Evaluation Notes / Location</th><th>Approved Leave Type & Status</th></tr>
+                  <tr><th>Date</th><th>Record ID / Type</th><th>Category</th><th>Emp ID & Name</th><th>Department</th><th>Score / Days / Time</th><th>Evaluation Notes / Location</th><th>Status / Action</th></tr>
                 </thead>
                 <tbody id="reportBody"></tbody>
               </table>
@@ -349,7 +341,6 @@
     let rawData = [], activeEmps = [], attData = [], leaveData = [], examResultsData = [];
     let leaveQuotaMap = {};
     let systemTypesList = [];
-    let selectedLeaveBalanceFilter = 'ALL_TYPES';
 
     function getLocalTodayIso() {
       const now = new Date();
@@ -359,23 +350,31 @@
       return `${yyyy}-${mm}-${dd}`;
     }
 
-    function parseFlexibleDate(dateStr) {
-      if (!dateStr) return null;
-      const clean = String(dateStr).split(',')[0].trim();
-      if (clean.includes('/')) {
-        const parts = clean.split('/');
-        if (parts.length === 3) {
-          return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+    function parseFlexibleDate(dateStr, fallbackTimestamp) {
+      if (dateStr) {
+        const clean = String(dateStr).split(',')[0].trim();
+        if (clean.includes('/')) {
+          const parts = clean.split('/');
+          if (parts.length === 3) {
+            const d = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+            if (!isNaN(d)) return d;
+          }
         }
-      }
-      if (clean.includes('-')) {
-        const parts = clean.split('-');
-        if (parts.length === 3) {
-          return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+        if (clean.includes('-')) {
+          const parts = clean.split('-');
+          if (parts.length === 3) {
+            const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+            if (!isNaN(d)) return d;
+          }
         }
+        const parsed = new Date(clean);
+        if (!isNaN(parsed)) return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
       }
-      const d = new Date(clean);
-      return isNaN(d) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      if (fallbackTimestamp) {
+        const fb = new Date(Number(fallbackTimestamp));
+        if (!isNaN(fb)) return new Date(fb.getFullYear(), fb.getMonth(), fb.getDate());
+      }
+      return null;
     }
 
     function formatDisplayDate(dObj) {
@@ -386,7 +385,6 @@
       return `${dd}/${mm}/${yyyy}`;
     }
 
-    // ရွေးချယ်ထားသော Filter ကာလ၏ ခုနှစ်ကို ရယူပေးသော Function
     function getSelectedFilterYear() {
       const mode = document.getElementById('filterPeriodMode').value;
       if (mode === 'DAILY') {
@@ -435,13 +433,8 @@
       renderView();
     }
 
-    function onLeaveHeaderFilterChange(selEl) {
-      selectedLeaveBalanceFilter = selEl.value;
-      renderView();
-    }
-
     function getEmpName(empCode) {
-      let eObj = activeEmps.find(i => String(i.code).toUpperCase() === String(empCode).toUpperCase());
+      let eObj = activeEmps.find(i => String(i.code).trim().toUpperCase() === String(empCode).trim().toUpperCase());
       return eObj ? eObj.name : 'Unknown';
     }
 
@@ -477,8 +470,8 @@
     function isLeaveCoveringDate(leaveRow, targetDateObj) {
       if (!targetDateObj) return false;
       const tTime = targetDateObj.getTime();
-      const sDate = parseFlexibleDate(leaveRow.start_date || leaveRow.apply_date);
-      const eDate = parseFlexibleDate(leaveRow.end_date || leaveRow.start_date || leaveRow.apply_date);
+      const sDate = parseFlexibleDate(leaveRow.start_date || leaveRow.apply_date, leaveRow.created_at);
+      const eDate = parseFlexibleDate(leaveRow.end_date || leaveRow.start_date || leaveRow.apply_date, leaveRow.created_at);
       if (!sDate) return false;
       const sTime = sDate.getTime();
       const eTime = eDate ? eDate.getTime() : sTime;
@@ -524,8 +517,8 @@
         fileSuffix = `Custom_${fStart || 'Start'}_to_${fEnd || 'End'}`;
       }
 
-      function isWithinPeriod(dateStr) {
-        const dObj = parseFlexibleDate(dateStr);
+      function isWithinPeriod(dateStr, createdAt) {
+        const dObj = parseFlexibleDate(dateStr, createdAt);
         if (!dObj) return false;
         const t = dObj.getTime();
         return (!periodStart || t >= periodStart) && (!periodEnd || t <= periodEnd);
@@ -533,14 +526,18 @@
 
       function isLeaveWithinPeriod(leaveRow) {
         if (mode === 'DAILY' && targetDayObj) {
-          return isLeaveCoveringDate(leaveRow, targetDayObj);
+          const appliedOnDay = isWithinPeriod(leaveRow.apply_date, leaveRow.created_at);
+          return isLeaveCoveringDate(leaveRow, targetDayObj) || appliedOnDay;
         }
-        const sObj = parseFlexibleDate(leaveRow.start_date || leaveRow.apply_date);
-        const eObj = parseFlexibleDate(leaveRow.end_date || leaveRow.start_date || leaveRow.apply_date);
-        if (!sObj) return false;
-        const sTime = sObj.getTime();
-        const eTime = eObj ? eObj.getTime() : sTime;
-        return (!periodStart || eTime >= periodStart) && (!periodEnd || sTime <= periodEnd);
+        const sObj = parseFlexibleDate(leaveRow.start_date || leaveRow.apply_date, leaveRow.created_at);
+        const eObj = parseFlexibleDate(leaveRow.end_date || leaveRow.start_date || leaveRow.apply_date, leaveRow.created_at);
+        const aObj = parseFlexibleDate(leaveRow.apply_date, leaveRow.created_at);
+        if (!sObj && !aObj) return false;
+        const sTime = (sObj || aObj).getTime();
+        const eTime = (eObj || sObj || aObj).getTime();
+        const inRange = (!periodStart || eTime >= periodStart) && (!periodEnd || sTime <= periodEnd);
+        const appliedInRange = aObj ? ((!periodStart || aObj.getTime() >= periodStart) && (!periodEnd || aObj.getTime() <= periodEnd)) : false;
+        return inRange || appliedInRange;
       }
 
       return {
@@ -550,10 +547,10 @@
         targetDayObj,
         periodLabel,
         fileSuffix,
-        filteredAtt: attData.filter(r => isWithinPeriod(r.date_str)),
+        filteredAtt: attData.filter(r => isWithinPeriod(r.date_str, r.created_at)),
         filteredLeave: leaveData.filter(r => isLeaveWithinPeriod(r)),
-        filteredRecords: rawData.filter(r => isWithinPeriod(r.date_str)),
-        filteredExams: examResultsData.filter(r => isWithinPeriod(r.date_str))
+        filteredRecords: rawData.filter(r => isWithinPeriod(r.date_str, r.created_at)),
+        filteredExams: examResultsData.filter(r => isWithinPeriod(r.date_str, r.created_at))
       };
     }
 
@@ -634,7 +631,7 @@
     function deleteExamSubmission(docId) {
       Swal.fire({
         title: 'Delete Exam Result?',
-        text: 'ဤအဖြေမှတ်တမ်းကို ဖျက်လိုက်ပါက ဝန်ထမ်းအနေဖြင့် စာမေးပွဲ ပြန်လည်ဖြေဆိုနိုင်မည် ဖြစ်ပါသည်။',
+        text: 'Deleting this submission will allow the employee to retake the assessment.',
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#d33',
@@ -642,60 +639,6 @@
       }).then(res => {
         if (res.isConfirmed) db.collection('exam_results').doc(docId).delete();
       });
-    }
-
-    function buildLeaveSelectHeaderHtml() {
-      const targetYear = getSelectedFilterYear();
-      const opts = `<option value="ALL_TYPES" ${selectedLeaveBalanceFilter === 'ALL_TYPES' ? 'selected' : ''}>All Leave Balances (${targetYear})</option>` +
-        Object.keys(leaveQuotaMap).map(lt => `<option value="${lt}" ${selectedLeaveBalanceFilter === lt ? 'selected' : ''}>Only: ${lt} (${targetYear})</option>`).join('') +
-        `<option value="PENDING" ${selectedLeaveBalanceFilter === 'PENDING' ? 'selected' : ''}>Pending Leaves Only</option>`;
-      return `<select id="summaryLeaveSelect" class="form-select form-select-sm fw-bold border-warning bg-dark text-warning" onchange="onLeaveHeaderFilterChange(this)">${opts}</select>`;
-    }
-
-    // ရွေးချယ်ထားသော ခုနှစ် (targetYear) အတွင်း ယူထားသည့် Approved ခွင့်ရက်များကိုသာ နှုတ်ယူတွက်ချက်ပေးသော Function
-    function getLeaveBalanceDisplayHtml(empObj, periodLeaves, allEmpLeaves) {
-      const empCode = String(empObj.code).trim().toUpperCase();
-      const allTypes = getAllConfiguredLeaveTypes(empObj);
-      const targetYear = getSelectedFilterYear();
-
-      if (selectedLeaveBalanceFilter === 'PENDING') {
-        let cnt = periodLeaves.filter(l => String(l.emp_code).trim().toUpperCase() === empCode && String(l.status).toUpperCase() === 'PENDING').length;
-        return `<span class="${cnt > 0 ? 'badge bg-warning text-dark fs-6' : 'text-muted small'}">${cnt} Pending</span>`;
-      }
-
-      const typesToShow = selectedLeaveBalanceFilter === 'ALL_TYPES'
-        ? allTypes
-        : [selectedLeaveBalanceFilter];
-
-      if (typesToShow.length === 0) {
-        return `<span class="text-muted small">No Leave Types Configured</span>`;
-      }
-
-      const itemsHtml = typesToShow.map(lt => {
-        const allowed = getEmployeeLeaveOpening(empObj, lt);
-        const usedDays = allEmpLeaves
-          .filter(l => {
-            if (String(l.emp_code).trim().toUpperCase() !== empCode || l.status !== 'Approved' || l.leave_type !== lt) return false;
-            const lDate = parseFlexibleDate(l.start_date || l.apply_date);
-            return lDate && lDate.getFullYear() === targetYear;
-          })
-          .reduce((s, l) => s + Number(l.total_days || 0), 0);
-        const rem = Math.max(0, allowed - usedDays);
-        const remBadgeCls = rem > 0 ? 'bg-success' : 'bg-danger';
-
-        return `
-          <div class="leave-bal-item">
-            <span class="fw-bold text-dark text-truncate" style="max-width: 115px;" title="${lt}">${lt}:</span>
-            <span class="text-nowrap">
-              <span class="text-muted">Open:<b>${allowed}</b></span>
-              <span class="text-primary ms-1">Used:<b>${usedDays}</b></span>
-              <span class="badge ${remBadgeCls} ms-1">Rem: ${rem}</span>
-            </span>
-          </div>
-        `;
-      }).join('');
-
-      return `<div class="d-flex flex-column gap-1">${itemsHtml}</div>`;
     }
 
     function doesEmployeeMatchStatusFilter(empObj, periodData, fAttStatus) {
@@ -752,7 +695,7 @@
         const dVal = document.getElementById('filterDailyDate').value || getLocalTodayIso();
         const isToday = (dVal === getLocalTodayIso());
         document.getElementById('summaryTableHeading').innerText = isToday
-          ? "Today's All Employees Attendance & Leave Status (ယနေ့ ဝန်ထမ်းအားလုံး၏ ရုံးတက်နှင့် ခွင့်အခြေအနေ)"
+          ? "Today's All Employees Attendance & Leave Status"
           : `Daily Attendance & Leave Status (${dVal})`;
       } else if (mode === 'MONTHLY') {
         const mName = document.getElementById('filterMonth').options[document.getElementById('filterMonth').selectedIndex].text;
@@ -767,16 +710,17 @@
 
       document.getElementById('activePeriodBadge').innerText = periodLabel;
 
+      const recordsForScore = mode === 'DAILY' ? rawData : filteredRecords;
       let scoreMap = {};
-      filteredRecords.forEach(row => {
+      recordsForScore.forEach(row => {
         let emp = String(row.emp_code).trim().toUpperCase();
         if (!scoreMap[emp]) scoreMap[emp] = 0;
-        let eff = row.effect || (row.type === 'DEMERIT' ? '-' : '+');
+        let eff = row.effect || (row.type === 'DEMERIT' ? '-' : (row.type === 'EXAM / TRAINING' ? '0' : '+'));
         if (eff === '+') scoreMap[emp] += Number(row.points || 0);
         else if (eff === '-') scoreMap[emp] -= Number(row.points || 0);
       });
 
-      // ==================== MODE 1: ALL EMPLOYEES VIEW ====================
+      // ==================== MODE 1: ALL EMPLOYEES SUMMARY VIEW ====================
       if (fEmp === '') {
         document.getElementById('defaultSummaryView').style.display = 'block';
         document.getElementById('filteredDetailView').style.display = 'none';
@@ -787,16 +731,15 @@
         if (mode === 'DAILY') {
           thead.innerHTML = `
             <tr>
-              <th width="4%">Profile</th>
-              <th width="6%">Emp ID</th>
-              <th width="14%">Full Name & Dept</th>
-              <th width="9%">Join & Service</th>
-              <th width="9%">Daily Status</th>
-              <th width="10%">Check-In Time</th>
-              <th width="10%">Check-Out Time</th>
-              <th width="11%">Leave Info (Selected Day)</th>
-              <th width="22%">${buildLeaveSelectHeaderHtml()}</th>
-              <th width="5%">Score</th>
+              <th width="5%">Profile</th>
+              <th width="8%">Emp ID</th>
+              <th width="18%">Full Name & Dept</th>
+              <th width="12%">Join & Service</th>
+              <th width="12%">Daily Status</th>
+              <th width="13%">Check-In Time</th>
+              <th width="13%">Check-Out Time</th>
+              <th width="12%">Leave Status (Day)</th>
+              <th width="7%">Score</th>
             </tr>
           `;
 
@@ -858,14 +801,12 @@
             if (activeLeave) {
               dayLeaveHtml = `
                 <div class="fw-bold text-dark small">${activeLeave.leave_type} (${activeLeave.total_days}d)</div>
-                <div class="text-muted" style="font-size:0.75rem;">${activeLeave.reason || ''}</div>
-                <div class="mt-1" onclick="event.stopPropagation();">
+                <div class="text-muted" style="font-size:0.75rem;">${activeLeave.start_date || ''} ~ ${activeLeave.end_date || ''}</div>
+                <div class="mt-1">
                   <span class="badge ${activeLeave.status === 'Approved' ? 'bg-success' : 'bg-warning text-dark'}">${activeLeave.status}</span>
                 </div>
               `;
             }
-
-            const leaveBalanceHtml = getLeaveBalanceDisplayHtml(empObj, filteredLeave, leaveData);
 
             rowsHtml.push(`
               <tr style="cursor:pointer;" onclick="document.getElementById('filterEmp').value='${empCode}'; renderView();">
@@ -883,7 +824,6 @@
                 <td>${inHtml}</td>
                 <td>${outHtml}</td>
                 <td>${dayLeaveHtml}</td>
-                <td>${leaveBalanceHtml}</td>
                 <td class="fw-bold ${score >= 0 ? 'text-success' : 'text-danger'}">${score}</td>
               </tr>
             `);
@@ -900,21 +840,20 @@
           document.getElementById('kpiLabelAbsent').innerText = 'Not Checked-In';
           document.getElementById('kpiValAbsent').innerText = cntAbsent;
 
-          document.getElementById('defaultEmpBody').innerHTML = rowsHtml.join('') || '<tr><td colspan="10" class="py-4 text-muted">No matching employee records found for this date.</td></tr>';
+          document.getElementById('defaultEmpBody').innerHTML = rowsHtml.join('') || '<tr><td colspan="9" class="py-4 text-muted">No matching employee records found for this date.</td></tr>';
 
         } else {
           thead.innerHTML = `
             <tr>
-              <th width="4%">Profile</th>
-              <th width="6%">Emp ID</th>
-              <th width="14%">Full Name & Dept</th>
-              <th width="9%">Join & Service</th>
-              <th width="11%">NRC / Insurance</th>
-              <th width="8%">Check-In Days</th>
-              <th width="10%">On-Time vs Late</th>
-              <th width="11%">Period Leaves Taken</th>
-              <th width="22%">${buildLeaveSelectHeaderHtml()}</th>
-              <th width="5%">Score</th>
+              <th width="5%">Profile</th>
+              <th width="8%">Emp ID</th>
+              <th width="18%">Full Name & Dept</th>
+              <th width="12%">Join & Service</th>
+              <th width="15%">NRC / Insurance</th>
+              <th width="10%">Check-In Days</th>
+              <th width="12%">On-Time vs Late</th>
+              <th width="13%">Leaves Taken (Period)</th>
+              <th width="7%">Score</th>
             </tr>
           `;
 
@@ -943,8 +882,6 @@
 
             if (!doesEmployeeMatchStatusFilter(empObj, periodData, fAttStatus)) return;
 
-            const leaveBalanceHtml = getLeaveBalanceDisplayHtml(empObj, filteredLeave, leaveData);
-
             rowsHtml.push(`
               <tr style="cursor:pointer;" onclick="document.getElementById('filterEmp').value='${empCode}'; renderView();">
                 <td>${imgTag}</td>
@@ -970,7 +907,6 @@
                   <div class="fw-bold text-primary">Approved: ${approvedDays} Days</div>
                   ${pendingCnt > 0 ? `<span class="badge bg-warning text-dark">${pendingCnt} Pending</span>` : '<span class="text-muted">0 Pending</span>'}
                 </td>
-                <td>${leaveBalanceHtml}</td>
                 <td class="fw-bold ${score >= 0 ? 'text-success' : 'text-danger'}">${score}</td>
               </tr>
             `);
@@ -987,11 +923,11 @@
           document.getElementById('kpiLabelAbsent').innerText = 'Pending Leave Requests';
           document.getElementById('kpiValAbsent').innerText = totalPendingLeavesAll;
 
-          document.getElementById('defaultEmpBody').innerHTML = rowsHtml.join('') || '<tr><td colspan="10" class="py-4 text-muted">No matching employee records found for this period.</td></tr>';
+          document.getElementById('defaultEmpBody').innerHTML = rowsHtml.join('') || '<tr><td colspan="9" class="py-4 text-muted">No matching employee records found for this period.</td></tr>';
         }
 
       } else {
-        // ==================== MODE 2: SINGLE EMPLOYEE DETAILED VIEW ====================
+        // ==================== MODE 2: SINGLE EMPLOYEE DETAILED VIEW (SYNCED WITH PORTAL LEDGER) ====================
         document.getElementById('defaultSummaryView').style.display = 'none';
         document.getElementById('filteredDetailView').style.display = 'block';
         document.getElementById('kpiSummaryRow').style.display = 'none';
@@ -999,7 +935,7 @@
         const targetYear = getSelectedFilterYear();
         document.getElementById('infoLeaveYearLabel').innerText = targetYear;
 
-        let empObj = activeEmps.find(i => String(i.code).toUpperCase() === fEmp);
+        let empObj = activeEmps.find(i => String(i.code).trim().toUpperCase() === fEmp);
         if (empObj) {
           document.getElementById('infoName').innerText = empObj.name;
           document.getElementById('infoCode').innerText = empObj.code;
@@ -1028,7 +964,7 @@
                 const used = leaveData
                   .filter(l => {
                     if (String(l.emp_code).trim().toUpperCase() !== empKey || l.status !== 'Approved' || l.leave_type !== lt) return false;
-                    const lDate = parseFlexibleDate(l.start_date || l.apply_date);
+                    const lDate = parseFlexibleDate(l.start_date || l.apply_date, l.created_at);
                     return lDate && lDate.getFullYear() === targetYear;
                   })
                   .reduce((s, l) => s + Number(l.total_days || 0), 0);
@@ -1037,43 +973,69 @@
               }).join('');
         }
 
-        let allLedgerRows = [], empTotalScore = 0;
-        let tableRec = (fCat === '' || systemTypesList.includes(fCat)) ? filteredRecords.filter(r => !fCat || r.type === fCat) : [];
-        let tableAtt = (fCat === '' || fCat === 'ATTENDANCE') ? filteredAtt : [];
-        let tableLeave = (fCat === '' || fCat === 'LEAVE') ? filteredLeave : [];
-        let tableExam = (fCat === '' || fCat === 'EXAM') ? filteredExams : [];
+        const useAllHistory = (mode === 'DAILY');
+        document.getElementById('empLedgerScopeBadge').innerText = useAllHistory
+          ? 'Showing: All History (Synced with Portal Ledger)'
+          : `Filtered by ${periodLabel}`;
 
-        tableRec.forEach(row => {
-          if (String(row.emp_code).toUpperCase() !== fEmp) return;
+        const sourceRec = useAllHistory ? rawData : filteredRecords;
+        const sourceAtt = useAllHistory ? attData : filteredAtt;
+        const sourceLeave = useAllHistory ? leaveData : filteredLeave;
+        const sourceExam = useAllHistory ? examResultsData : filteredExams;
+
+        let allLedgerRows = [], empTotalScore = 0;
+
+        sourceRec.forEach(row => {
+          if (String(row.emp_code).trim().toUpperCase() !== fEmp) return;
+          if (row.type === 'EXAM / TRAINING') return;
           let eff = row.effect || (row.type === 'DEMERIT' ? '-' : '+');
           if (eff === '+') empTotalScore += Number(row.points || 0);
           else if (eff === '-') empTotalScore -= Number(row.points || 0);
+        });
 
+        let tableRec = (fCat === '' || systemTypesList.includes(fCat))
+          ? sourceRec.filter(r => r.type !== 'EXAM / TRAINING' && (!fCat || r.type === fCat))
+          : [];
+        let tableAtt = (fCat === '' || fCat === 'ATTENDANCE') ? sourceAtt : [];
+        let tableLeave = (fCat === '' || fCat === 'LEAVE') ? sourceLeave : [];
+        let tableExam = (fCat === '' || fCat === 'EXAM') ? sourceExam : [];
+
+        tableRec.forEach(row => {
+          if (String(row.emp_code).trim().toUpperCase() !== fEmp) return;
+          let eff = row.effect || (row.type === 'DEMERIT' ? '-' : '+');
+          let dObj = parseFlexibleDate(row.date_str, row.created_at);
+          let sortTime = row.created_at || (dObj ? dObj.getTime() : 0);
           let badgeColor = eff === '+' ? 'bg-success' : (eff === '-' ? 'bg-danger' : 'bg-secondary');
           allLedgerRows.push({
-            time: row.created_at || 0,
-            html: `<tr><td>${row.date_str}</td><td class="fw-bold">${row.record_id}</td><td><span class="badge ${badgeColor}">${row.type} (${eff})</span></td><td>${row.emp_code} - ${getEmpName(row.emp_code)}</td><td>${row.dept}</td><td class="fw-bold">${row.points}</td><td>${row.line_remark}</td><td>${row.global_remark || '-'}</td></tr>`
+            time: sortTime,
+            html: `<tr><td>${row.date_str}</td><td class="fw-bold">${row.record_id}</td><td><span class="badge ${badgeColor}">${row.type} (${eff})</span></td><td>${row.emp_code} - ${getEmpName(row.emp_code)}</td><td>${row.dept || '-'}</td><td class="fw-bold">${eff === '0' ? 'Record' : eff + row.points + ' Pts'}</td><td>${row.line_remark || '-'}</td><td>${row.global_remark || '-'}</td></tr>`
           });
         });
 
         tableExam.forEach(row => {
-          if (String(row.emp_code).toUpperCase() !== fEmp) return;
+          if (String(row.emp_code).trim().toUpperCase() !== fEmp) return;
+          let dObj = parseFlexibleDate(row.date_str, row.created_at);
+          let sortTime = row.created_at || (dObj ? dObj.getTime() : 0);
           allLedgerRows.push({
-            time: row.created_at || 0,
-            html: `<tr><td>${row.date_str}</td><td class="fw-bold">${row.exam_id}</td><td><span class="badge bg-primary">ONLINE EXAM</span></td><td>${row.emp_code} - ${row.emp_name}</td><td>${row.dept}</td><td class="fw-bold">${row.score} / ${row.total_marks}</td><td>${row.exam_title}</td><td><a href="exam.html?result_id=${row.id}" target="_blank" class="btn btn-sm btn-outline-danger py-0">View Answer Sheet</a></td></tr>`
+            time: sortTime,
+            html: `<tr><td>${row.date_str}</td><td class="fw-bold">${row.exam_id}</td><td><span class="badge bg-primary">ONLINE EXAM</span></td><td>${row.emp_code} - ${row.emp_name}</td><td>${row.dept || '-'}</td><td class="fw-bold">${row.score} / ${row.total_marks} (${row.passed ? 'PASSED' : 'FAILED'})</td><td>${row.exam_title}</td><td><a href="exam.html?result_id=${row.id}" target="_blank" class="btn btn-sm btn-outline-danger py-0">View Answer Sheet</a></td></tr>`
           });
         });
 
         tableAtt.forEach(row => {
-          if (String(row.emp_code).toUpperCase() !== fEmp) return;
+          if (String(row.emp_code).trim().toUpperCase() !== fEmp) return;
+          let dObj = parseFlexibleDate(row.date_str, row.created_at);
+          let sortTime = row.created_at || (dObj ? dObj.getTime() : 0);
           allLedgerRows.push({
-            time: row.created_at || 0,
-            html: `<tr><td>${row.date_str}</td><td class="fw-bold">${row.type}</td><td><span class="badge bg-info text-dark">ATTENDANCE</span></td><td>${row.emp_code} - ${getEmpName(row.emp_code)}</td><td>-</td><td>${row.time_str}</td><td>${row.location}</td><td class="fw-bold">${row.time_status}</td></tr>`
+            time: sortTime,
+            html: `<tr><td>${row.date_str} ${row.time_str || ''}</td><td class="fw-bold">${row.type}</td><td><span class="badge bg-info text-dark">ATTENDANCE</span></td><td>${row.emp_code} - ${getEmpName(row.emp_code)}</td><td>-</td><td>${row.time_str || '-'}</td><td>${row.location || '-'}</td><td class="fw-bold">${row.time_status || 'On Time'}</td></tr>`
           });
         });
 
         tableLeave.forEach(row => {
-          if (String(row.emp_code).toUpperCase() !== fEmp) return;
+          if (String(row.emp_code).trim().toUpperCase() !== fEmp) return;
+          let dObj = parseFlexibleDate(row.start_date || row.apply_date, row.created_at);
+          let sortTime = row.created_at || (dObj ? dObj.getTime() : 0);
 
           let leaveTypeOpts = Object.keys(leaveQuotaMap).length > 0 ? Object.keys(leaveQuotaMap) : [row.leave_type];
           if (!leaveTypeOpts.includes(row.leave_type)) leaveTypeOpts.push(row.leave_type);
@@ -1090,14 +1052,15 @@
             </div>`;
 
           allLedgerRows.push({
-            time: row.created_at || 0,
-            html: `<tr><td>${row.apply_date} (${row.start_date || ''} ~ ${row.end_date || ''})</td><td class="fw-bold">${row.leave_type}</td><td><span class="badge bg-warning text-dark">LEAVE</span></td><td>${row.emp_code} - ${getEmpName(row.emp_code)}</td><td>-</td><td>${row.total_days} Days</td><td>${row.reason}</td><td>${selectLeaveHtml}</td></tr>`
+            time: sortTime,
+            html: `<tr><td>${row.apply_date} (${row.start_date || ''} ~ ${row.end_date || ''})</td><td class="fw-bold">${row.leave_type}</td><td><span class="badge bg-warning text-dark">LEAVE</span></td><td>${row.emp_code} - ${getEmpName(row.emp_code)}</td><td>-</td><td>${row.total_days} Days</td><td>${row.reason || '-'}</td><td>${selectLeaveHtml}</td></tr>`
           });
         });
 
         allLedgerRows.sort((a, b) => b.time - a.time);
-        document.getElementById('reportBody').innerHTML = allLedgerRows.map(r => r.html).join('') || '<tr><td colspan="8" class="text-center py-4">No records found for this period.</td></tr>';
+        document.getElementById('reportBody').innerHTML = allLedgerRows.map(r => r.html).join('') || '<tr><td colspan="8" class="text-center py-4">No records found.</td></tr>';
         document.getElementById('infoScore').innerText = empTotalScore;
+        document.getElementById('infoScore').className = `badge ${empTotalScore >= 0 ? 'bg-success' : 'bg-danger'} fs-6 me-3`;
       }
     }
 
@@ -1178,12 +1141,12 @@
         : activeEmps.filter(e => doesEmployeeMatchStatusFilter(e, periodData, fAttStatus));
 
       if (targetEmployees.length === 0) {
-        return Swal.fire('No Data', 'ထုတ်ယူရန် ဝန်ထမ်းမှတ်တမ်း မရှိပါ။', 'info');
+        return Swal.fire('No Data', 'No matching employee records available to export.', 'info');
       }
 
       const wb = XLSX.utils.book_new();
 
-      // ==================== SHEET 1: ALL EMPLOYEES DETAILED RECORDS ====================
+      // SHEET 1: ALL EMPLOYEES DETAILED RECORDS
       const detailHeaders = [
         "Emp ID",
         "Full Name",
@@ -1216,7 +1179,7 @@
           const empAtt = filteredAtt.filter(a => String(a.emp_code).trim().toUpperCase() === empKey);
           const dateMap = {};
           empAtt.forEach(a => {
-            const dObj = parseFlexibleDate(a.date_str);
+            const dObj = parseFlexibleDate(a.date_str, a.created_at);
             const dKey = dObj ? formatDisplayDate(dObj) : String(a.date_str).split(',')[0].trim();
             if (!dateMap[dKey]) {
               dateMap[dKey] = { sortTime: dObj ? dObj.getTime() : (a.created_at || 0), dateStr: dKey, inRec: null, outRec: null };
@@ -1260,7 +1223,7 @@
         if (fCat === '' || fCat === 'LEAVE') {
           const empLv = filteredLeave.filter(l => String(l.emp_code).trim().toUpperCase() === empKey);
           empLv.forEach(l => {
-            const dObj = parseFlexibleDate(l.start_date || l.apply_date);
+            const dObj = parseFlexibleDate(l.start_date || l.apply_date, l.created_at);
             empEvents.push({
               sortTime: dObj ? dObj.getTime() : (l.created_at || 0),
               row: [
@@ -1288,9 +1251,9 @@
         }
 
         if (fCat === '' || systemTypesList.includes(fCat)) {
-          const empRecs = filteredRecords.filter(r => String(r.emp_code).trim().toUpperCase() === empKey && (!fCat || r.type === fCat));
+          const empRecs = filteredRecords.filter(r => String(r.emp_code).trim().toUpperCase() === empKey && r.type !== 'EXAM / TRAINING' && (!fCat || r.type === fCat));
           empRecs.forEach(r => {
-            const dObj = parseFlexibleDate(r.date_str);
+            const dObj = parseFlexibleDate(r.date_str, r.created_at);
             const eff = r.effect || (r.type === 'DEMERIT' ? '-' : '+');
             empEvents.push({
               sortTime: dObj ? dObj.getTime() : (r.created_at || 0),
@@ -1321,7 +1284,7 @@
         if (fCat === '' || fCat === 'EXAM') {
           const empEx = filteredExams.filter(x => String(x.emp_code).trim().toUpperCase() === empKey);
           empEx.forEach(x => {
-            const dObj = parseFlexibleDate(x.date_str);
+            const dObj = parseFlexibleDate(x.date_str, x.created_at);
             empEvents.push({
               sortTime: dObj ? dObj.getTime() : (x.created_at || 0),
               row: [
@@ -1380,7 +1343,7 @@
       autoFitWorksheetColumns(wsDetails, detailRows);
       XLSX.utils.book_append_sheet(wb, wsDetails, "All_Employees_Details");
 
-      // ==================== SHEET 2: PERIOD SUMMARY & LEAVE BALANCES ====================
+      // SHEET 2: PERIOD SUMMARY
       const leaveTypeNames = getAllConfiguredLeaveTypes();
       const summaryHeaders = [
         "Emp ID",
@@ -1400,7 +1363,7 @@
         "Late Entries (Period)",
         "Approved Leave Days (Period)",
         "Pending Leaves (Period)",
-        "Performance Score (Period)",
+        "Performance Score",
         ...leaveTypeNames.map(lt => `${lt} (${targetYear}: Open / Used / Rem)`)
       ];
       const summaryRows = [summaryHeaders];
@@ -1419,7 +1382,7 @@
         const pendingCnt = empPeriodLeaves.filter(l => String(l.status).toUpperCase() === 'PENDING').length;
 
         let empScore = 0;
-        filteredRecords.filter(r => String(r.emp_code).trim().toUpperCase() === empKey).forEach(r => {
+        filteredRecords.filter(r => String(r.emp_code).trim().toUpperCase() === empKey && r.type !== 'EXAM / TRAINING').forEach(r => {
           const eff = r.effect || (r.type === 'DEMERIT' ? '-' : '+');
           if (eff === '+') empScore += Number(r.points || 0);
           else if (eff === '-') empScore -= Number(r.points || 0);
@@ -1430,7 +1393,7 @@
           const used = leaveData
             .filter(l => {
               if (String(l.emp_code).trim().toUpperCase() !== empKey || l.status !== 'Approved' || l.leave_type !== lt) return false;
-              const lDate = parseFlexibleDate(l.start_date || l.apply_date);
+              const lDate = parseFlexibleDate(l.start_date || l.apply_date, l.created_at);
               return lDate && lDate.getFullYear() === targetYear;
             })
             .reduce((s, l) => s + Number(l.total_days || 0), 0);
