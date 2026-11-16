@@ -183,7 +183,6 @@
     let attLoaded = false, examsLoaded = false, resultsLoaded = false, lastPopupKey = '';
     let cLat = 0, cLng = 0, cDist = 0, hasGeoFix = false, isGeoOK = false;
 
-    // Default Fallback Rules (Setting Page တွင် မထည့်ရသေးပါက အသုံးပြုရန်)
     const defaultAttendanceRules = [
       { action_type: 'Check-In', min_mins: -999, max_mins: 5, subcategory: 'On Time', color_class: 'text-success', show_mins: false },
       { action_type: 'Check-In', min_mins: 6, max_mins: 15, subcategory: 'Small Late', color_class: 'text-warning', show_mins: true },
@@ -200,6 +199,15 @@
       const mm = String(d.getMonth() + 1).padStart(2, '0');
       const yyyy = d.getFullYear();
       return `${dd}/${mm}/${yyyy}`;
+    }
+
+    // ခွင့်မှတ်တမ်း၏ ခုနှစ်ကို တိကျစွာ ဖတ်ယူပေးသော Helper Function
+    function getLeaveRecordYear(leaveRow) {
+      const raw = String(leaveRow.start_date || leaveRow.apply_date || '').split(',')[0].trim();
+      if (raw.includes('-')) return Number(raw.split('-')[0]);
+      if (raw.includes('/')) return Number(raw.split('/')[2]);
+      const d = new Date(raw);
+      return isNaN(d) ? new Date().getFullYear() : d.getFullYear();
     }
 
     function isRecordFromToday(rec) {
@@ -256,7 +264,6 @@
       return status;
     }
 
-    // Setting Page တွင် သတ်မှတ်ထားသော Attendance Rules များအတိုင်း တွက်ချက်ပေးသော Function
     function getTimeStatusInfo(actionType) {
       let d = new Date();
       let nowMins = d.getHours() * 60 + d.getMinutes();
@@ -487,7 +494,6 @@
         return Swal.fire("Already Checked Out", "ယနေ့အတွက် Check-Out ထွက်ထားပြီးသား ဖြစ်ပါသည်။", "warning");
       }
 
-      // Setting Rules မှတစ်ဆင့် လက်ရှိ Action (Check-In သို့မဟုတ် Check-Out) ၏ Status ကို အရင်တွက်ချက်ယူမည်
       const actionTimeInfo = getTimeStatusInfo(type);
       const recordedStatusLabel = actionTimeInfo.label;
 
@@ -640,19 +646,21 @@
       window.location.href = 'login.html';
     }
 
+    // လက်ရှိခုနှစ် (Current Year) အတွင်း ယူထားသော Approved ခွင့်ရက်များကိုသာ နှုတ်ယူတွက်ချက်ခြင်း
     function checkLeaveType() {
       let type = document.getElementById('leaveType').value;
       let infoBox = document.getElementById('leaveQuotaInfo');
       if (!type) { infoBox.style.display = 'none'; return; }
 
+      let currentYear = new Date().getFullYear();
       let allowed = getEmpOpeningQuota(type);
       let used = myLeaveList
-        .filter(l => l.leave_type === type && l.status === 'Approved')
+        .filter(l => l.leave_type === type && l.status === 'Approved' && getLeaveRecordYear(l) === currentYear)
         .reduce((sum, l) => sum + Number(l.total_days || 0), 0);
       let rem = Math.max(0, allowed - used);
 
       infoBox.style.display = 'block';
-      infoBox.innerHTML = `<strong>${type}:</strong> အဖွင့်လက်ကျန် <b>${allowed}</b> ရက် | ယူပြီး <b>${used}</b> ရက် | လက်ကျန် <b>${rem}</b> ရက်`;
+      infoBox.innerHTML = `<strong>${type} (${currentYear}):</strong> အဖွင့်လက်ကျန် <b>${allowed}</b> ရက် | ယူပြီး <b>${used}</b> ရက် | လက်ကျန် <b>${rem}</b> ရက်`;
     }
 
     function calcDays() {
