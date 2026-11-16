@@ -262,9 +262,8 @@
                     <div class="col-md-3"><strong>Phone:</strong> <span id="infoPhone"></span></div>
                     <div class="col-md-3"><strong>Bio/Skills:</strong> <span id="infoBio"></span></div>
                     <div class="col-md-12"><strong>Address:</strong> <span id="infoAddress"></span></div>
-                    <!-- ဝန်ထမ်းတစ်ဦးချင်းစီ၏ Leave အမျိုးအစားအလိုက် လက်ကျန်ပြသသည့် အကွက် -->
                     <div class="col-12 border-top pt-2 mt-2">
-                      <strong class="text-dark d-block mb-1"><i class="bi bi-calendar2-check text-warning"></i> Leave Balances by Type:</strong>
+                      <strong class="text-dark d-block mb-1"><i class="bi bi-calendar2-check text-warning"></i> Leave Balances by Type (<span id="infoLeaveYearLabel"></span>):</strong>
                       <div id="infoLeaveBalances" class="d-flex flex-wrap gap-2"></div>
                     </div>
                     <div class="col-12 border-top pt-2 mt-2">
@@ -350,7 +349,6 @@
     let rawData = [], activeEmps = [], attData = [], leaveData = [], examResultsData = [];
     let leaveQuotaMap = {};
     let systemTypesList = [];
-    // Default အနေဖြင့် Leave အမျိုးအစားအားလုံး၏ Balance ကို ပြသထားမည်
     let selectedLeaveBalanceFilter = 'ALL_TYPES';
 
     function getLocalTodayIso() {
@@ -386,6 +384,19 @@
       const mm = String(dObj.getMonth() + 1).padStart(2, '0');
       const yyyy = dObj.getFullYear();
       return `${dd}/${mm}/${yyyy}`;
+    }
+
+    // ရွေးချယ်ထားသော Filter ကာလ၏ ခုနှစ်ကို ရယူပေးသော Function
+    function getSelectedFilterYear() {
+      const mode = document.getElementById('filterPeriodMode').value;
+      if (mode === 'DAILY') {
+        const dObj = parseFlexibleDate(document.getElementById('filterDailyDate').value);
+        return dObj ? dObj.getFullYear() : new Date().getFullYear();
+      }
+      if (mode === 'MONTHLY') return Number(document.getElementById('filterMonthYear').value);
+      if (mode === 'YEARLY') return Number(document.getElementById('filterYearOnly').value);
+      const sObj = parseFlexibleDate(document.getElementById('filterStart').value);
+      return sObj ? sObj.getFullYear() : new Date().getFullYear();
     }
 
     function initDateFilters() {
@@ -455,7 +466,6 @@
       return Number(leaveQuotaMap[leaveType] || 0);
     }
 
-    // ဝန်ထမ်းတစ်ဦးအတွက် သတ်မှတ်ထားသော Leave အမျိုးအစားအားလုံး စာရင်းကို ရယူခြင်း
     function getAllConfiguredLeaveTypes(empObj) {
       const types = new Set(Object.keys(leaveQuotaMap));
       if (empObj && empObj.openingLeaves) {
@@ -635,16 +645,18 @@
     }
 
     function buildLeaveSelectHeaderHtml() {
-      const opts = `<option value="ALL_TYPES" ${selectedLeaveBalanceFilter === 'ALL_TYPES' ? 'selected' : ''}>All Leave Balances (အမျိုးအစားအလိုက် လက်ကျန်)</option>` +
-        Object.keys(leaveQuotaMap).map(lt => `<option value="${lt}" ${selectedLeaveBalanceFilter === lt ? 'selected' : ''}>Only: ${lt}</option>`).join('') +
+      const targetYear = getSelectedFilterYear();
+      const opts = `<option value="ALL_TYPES" ${selectedLeaveBalanceFilter === 'ALL_TYPES' ? 'selected' : ''}>All Leave Balances (${targetYear})</option>` +
+        Object.keys(leaveQuotaMap).map(lt => `<option value="${lt}" ${selectedLeaveBalanceFilter === lt ? 'selected' : ''}>Only: ${lt} (${targetYear})</option>`).join('') +
         `<option value="PENDING" ${selectedLeaveBalanceFilter === 'PENDING' ? 'selected' : ''}>Pending Leaves Only</option>`;
       return `<select id="summaryLeaveSelect" class="form-select form-select-sm fw-bold border-warning bg-dark text-warning" onchange="onLeaveHeaderFilterChange(this)">${opts}</select>`;
     }
 
-    // ဝန်ထမ်းတစ်ဦးချင်းစီ၏ Leave အမျိုးအစားအလိုက် Leave Balance များကို တွက်ချက်ပြသပေးသော Function
+    // ရွေးချယ်ထားသော ခုနှစ် (targetYear) အတွင်း ယူထားသည့် Approved ခွင့်ရက်များကိုသာ နှုတ်ယူတွက်ချက်ပေးသော Function
     function getLeaveBalanceDisplayHtml(empObj, periodLeaves, allEmpLeaves) {
       const empCode = String(empObj.code).trim().toUpperCase();
       const allTypes = getAllConfiguredLeaveTypes(empObj);
+      const targetYear = getSelectedFilterYear();
 
       if (selectedLeaveBalanceFilter === 'PENDING') {
         let cnt = periodLeaves.filter(l => String(l.emp_code).trim().toUpperCase() === empCode && String(l.status).toUpperCase() === 'PENDING').length;
@@ -662,7 +674,11 @@
       const itemsHtml = typesToShow.map(lt => {
         const allowed = getEmployeeLeaveOpening(empObj, lt);
         const usedDays = allEmpLeaves
-          .filter(l => String(l.emp_code).trim().toUpperCase() === empCode && l.status === 'Approved' && l.leave_type === lt)
+          .filter(l => {
+            if (String(l.emp_code).trim().toUpperCase() !== empCode || l.status !== 'Approved' || l.leave_type !== lt) return false;
+            const lDate = parseFlexibleDate(l.start_date || l.apply_date);
+            return lDate && lDate.getFullYear() === targetYear;
+          })
           .reduce((s, l) => s + Number(l.total_days || 0), 0);
         const rem = Math.max(0, allowed - usedDays);
         const remBadgeCls = rem > 0 ? 'bg-success' : 'bg-danger';
@@ -980,6 +996,9 @@
         document.getElementById('filteredDetailView').style.display = 'block';
         document.getElementById('kpiSummaryRow').style.display = 'none';
 
+        const targetYear = getSelectedFilterYear();
+        document.getElementById('infoLeaveYearLabel').innerText = targetYear;
+
         let empObj = activeEmps.find(i => String(i.code).toUpperCase() === fEmp);
         if (empObj) {
           document.getElementById('infoName').innerText = empObj.name;
@@ -1000,7 +1019,6 @@
           let imgEl = document.getElementById('infoPhoto');
           if (empObj.photoUrl) { imgEl.src = empObj.photoUrl; imgEl.style.display = 'block'; } else { imgEl.style.display = 'none'; }
 
-          // ဝန်ထမ်းတစ်ဦးချင်းစီ၏ Detail Card တွင်လည်း Leave အမျိုးအစားအလိုက် Balance ပြသခြင်း
           const allTypes = getAllConfiguredLeaveTypes(empObj);
           const empKey = String(empObj.code).trim().toUpperCase();
           document.getElementById('infoLeaveBalances').innerHTML = allTypes.length === 0
@@ -1008,7 +1026,11 @@
             : allTypes.map(lt => {
                 const open = getEmployeeLeaveOpening(empObj, lt);
                 const used = leaveData
-                  .filter(l => String(l.emp_code).trim().toUpperCase() === empKey && l.status === 'Approved' && l.leave_type === lt)
+                  .filter(l => {
+                    if (String(l.emp_code).trim().toUpperCase() !== empKey || l.status !== 'Approved' || l.leave_type !== lt) return false;
+                    const lDate = parseFlexibleDate(l.start_date || l.apply_date);
+                    return lDate && lDate.getFullYear() === targetYear;
+                  })
                   .reduce((s, l) => s + Number(l.total_days || 0), 0);
                 const rem = Math.max(0, open - used);
                 return `<span class="badge bg-light text-dark border p-2"><b>${lt}:</b> Open ${open} | Used ${used} | <span class="text-${rem > 0 ? 'success' : 'danger'} fw-bold">Rem: ${rem}</span></span>`;
@@ -1149,6 +1171,7 @@
       const fAttStatus = document.getElementById('filterAttStatus').value;
       const periodData = getFilteredPeriodData();
       const { fileSuffix, filteredAtt, filteredLeave, filteredRecords, filteredExams } = periodData;
+      const targetYear = getSelectedFilterYear();
 
       const targetEmployees = fEmp !== ''
         ? activeEmps.filter(e => String(e.code).trim().toUpperCase() === fEmp)
@@ -1378,7 +1401,7 @@
         "Approved Leave Days (Period)",
         "Pending Leaves (Period)",
         "Performance Score (Period)",
-        ...leaveTypeNames.map(lt => `${lt} (Open / Used / Rem)`)
+        ...leaveTypeNames.map(lt => `${lt} (${targetYear}: Open / Used / Rem)`)
       ];
       const summaryRows = [summaryHeaders];
 
@@ -1405,7 +1428,11 @@
         const leaveBreakdowns = leaveTypeNames.map(lt => {
           const open = getEmployeeLeaveOpening(empObj, lt);
           const used = leaveData
-            .filter(l => String(l.emp_code).trim().toUpperCase() === empKey && l.status === 'Approved' && l.leave_type === lt)
+            .filter(l => {
+              if (String(l.emp_code).trim().toUpperCase() !== empKey || l.status !== 'Approved' || l.leave_type !== lt) return false;
+              const lDate = parseFlexibleDate(l.start_date || l.apply_date);
+              return lDate && lDate.getFullYear() === targetYear;
+            })
             .reduce((s, l) => s + Number(l.total_days || 0), 0);
           const rem = Math.max(0, open - used);
           return `Open: ${open} | Used: ${used} | Rem: ${rem}`;
