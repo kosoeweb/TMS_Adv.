@@ -272,9 +272,14 @@
             </div>
           </div>
 
-          <!-- (4) Leave Types & Allowed Days -->
+          <!-- (4) Leave Types & Allowed Days + Year-End Reset Button -->
           <div class="card border p-3 mb-4 bg-light">
-            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-calendar-check-fill text-warning"></i> 4. Leave Types & Default Allowed Days</h6>
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+              <h6 class="fw-bold text-dark mb-0"><i class="bi bi-calendar-check-fill text-warning"></i> 4. Leave Types & Default Allowed Days</h6>
+              <button type="button" class="btn btn-sm btn-danger fw-bold shadow-sm" onclick="resetAllEmployeesLeaveForNewYear()">
+                <i class="bi bi-arrow-repeat"></i> Year-End Reset (ဝန်ထမ်းအားလုံး နှစ်သစ်ခွင့်ရက် အပြည့်ပြန်ပေးရန်)
+              </button>
+            </div>
             <form onsubmit="addLeaveTypeSetting(event)" class="mb-3">
               <input type="hidden" id="editLeaveTypeDocId">
               <div class="row g-2">
@@ -338,7 +343,7 @@
             </div>
           </div>
 
-          <!-- (6) Attendance Time Status Rules (Check-In / Check-Out သတ်မှတ်ချက်များ) -->
+          <!-- (6) Attendance Time Status Rules -->
           <div class="card border border-danger p-3 bg-light">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
               <h6 class="fw-bold text-danger mb-0"><i class="bi bi-clock-history"></i> 6. Attendance Time Status Rules (Check-In & Check-Out အချိန်သတ်မှတ်ချက်များ)</h6>
@@ -346,7 +351,10 @@
                 <i class="bi bi-magic"></i> Load Default Rules (စံသတ်မှတ်ချက်များ ထည့်ရန်)
               </button>
             </div>
-            
+            <div class="small text-muted mb-3">
+              * <b>Check-In</b> သည် <code>Work Start</code> အချိန်မှ စတင်တွက်ချက်ပြီး၊ <b>Check-Out</b> သည် <code>Work End</code> အချိန်မှ စတင်တွက်ချက်ပါသည်။ (အနှုတ်ဂဏန်း <code>-999</code> သည် သတ်မှတ်ချိန်မတိုင်မီ စောရောက်/စောဆင်းသည့် မိနစ်ဖြစ်ပြီး၊ အပေါင်းဂဏန်းသည် သတ်မှတ်ချိန်ထက် ကျော်လွန်သည့် မိနစ်ဖြစ်ပါသည်။)
+            </div>
+
             <form id="formTimeRule" onsubmit="saveAttendanceRule(event)" class="mb-3">
               <input type="hidden" id="editTimeRuleDocId">
               <div class="row g-2 align-items-end">
@@ -651,6 +659,47 @@
 
       if (document.getElementById('editEmpSelect').value) {
         fetchEmpData();
+      }
+    }
+
+    // နှစ်သစ်ကူးသည့်အခါ ဝန်ထမ်းအားလုံး၏ Opening Leave Balance ကို မူလ Default ရက်အပြည့်သို့ တစ်ပြိုင်နက် Reset လုပ်ပေးသည့် Function
+    async function resetAllEmployeesLeaveForNewYear() {
+      const lTypes = appData.settings.leaveTypes || [];
+      if (lTypes.length === 0) {
+        return Swal.fire('No Leave Types', 'ကျေးဇူးပြု၍ Leave Type နှင့် Default Allowed Days များကို အရင်သတ်မှတ်ပေးပါ။', 'warning');
+      }
+
+      let defaultLeavesMap = {};
+      let summaryListHtml = lTypes.map(lt => {
+        defaultLeavesMap[lt.name] = Number(lt.allowed_days || 0);
+        return `<li><b>${lt.name}:</b> ${lt.allowed_days} Days</li>`;
+      }).join('');
+
+      const confirmRes = await Swal.fire({
+        title: 'Year-End Leave Reset လုပ်မည်လား?',
+        html: `<div class="text-start small">
+          <p>ဝန်ထမ်းအားလုံး၏ နှစ်သစ်အဖွင့် ခွင့်လက်ကျန် (Opening Leave Balances) များကို အောက်ပါ မူလခွင့်ပြုရက်အပြည့်သို့ ပြန်လည်သတ်မှတ်ပေးပါမည်-</p>
+          <ul>${summaryListHtml}</ul>
+          <p class="text-danger mb-0">* ယခင်နှစ်က ခွင့်မှတ်တမ်းအဟောင်းများ ပျက်သွားမည် မဟုတ်ပါ။</p>
+        </div>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#601a1a',
+        confirmButtonText: 'Yes, Reset All Employees'
+      });
+
+      if (!confirmRes.isConfirmed) return;
+
+      try {
+        Swal.fire({ title: 'Resetting Leave Balances...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        const empSnap = await db.collection('employees').get();
+        const batchPromises = empSnap.docs.map(doc => {
+          return doc.ref.update({ openingLeaves: defaultLeavesMap });
+        });
+        await Promise.all(batchPromises);
+        Swal.fire('Reset Complete!', `ဝန်ထမ်း (${empSnap.docs.length}) ဦးလုံးအတွက် နှစ်သစ်ခွင့်ရက်များ အပြည့်ပြန်လည်သတ်မှတ်ပြီးပါပြီ။`, 'success');
+      } catch (err) {
+        Swal.fire('Error', err.message, 'error');
       }
     }
 
