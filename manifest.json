@@ -1,0 +1,25 @@
+{
+  "name": "UT Employee Portal",
+  "short_name": "UT Portal",
+  "description": "Universal Tractor Co., Ltd. - Talent Management System",
+  "start_url": "./login.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f6f9",
+  "theme_color": "#601a1a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "emp.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "emp.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
