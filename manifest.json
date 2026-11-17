@@ -1,6 +1,6 @@
 {
   "name": "UT Employee Portal",
-  "short_name": "UT Portal",
+  "short_name": "Attendance",
   "description": "Universal Tractor Co., Ltd. - Talent Management System",
   "start_url": "./login.html",
   "scope": "./",
@@ -16,7 +16,7 @@
       "purpose": "any maskable"
     },
     {
-      "src": "emp.png",
+      "src": "logo.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
