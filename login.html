@@ -113,73 +113,6 @@
       padding: 5px 12px;
       border-radius: 20px;
     }
-    .pwa-install-prompt {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%) translateY(150%);
-      width: calc(100% - 30px);
-      max-width: 400px;
-      background: #ffffff;
-      border-radius: 14px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
-      border-left: 5px solid #601a1a;
-      padding: 14px 16px;
-      z-index: 9999;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    .pwa-install-prompt.show {
-      transform: translateX(-50%) translateY(0);
-    }
-    .pwa-install-prompt img {
-      width: 42px;
-      height: 42px;
-      object-fit: contain;
-      border-radius: 8px;
-      background: #f8f9fa;
-      padding: 4px;
-      border: 1px solid #eee;
-    }
-    .pwa-prompt-text {
-      flex-grow: 1;
-      line-height: 1.25;
-    }
-    .pwa-prompt-title {
-      font-weight: 700;
-      font-size: 0.9rem;
-      color: #601a1a;
-      margin-bottom: 2px;
-    }
-    .pwa-prompt-sub {
-      font-size: 0.75rem;
-      color: #6c757d;
-    }
-    .btn-pwa-install {
-      background-color: #601a1a;
-      color: #ffffff;
-      font-weight: 600;
-      font-size: 0.82rem;
-      padding: 7px 14px;
-      border-radius: 8px;
-      border: none;
-      white-space: nowrap;
-    }
-    .btn-pwa-install:hover {
-      background-color: #4a1313;
-      color: #ffffff;
-    }
-    .btn-pwa-close {
-      background: transparent;
-      border: none;
-      color: #adb5bd;
-      font-size: 1.1rem;
-      padding: 0 4px;
-      line-height: 1;
-    }
   </style>
 </head>
 <body>
@@ -197,7 +130,7 @@
       <div class="portal-subtitle">Employee Portal Sign In</div>
     </div>
 
-    <form id="loginForm">
+    <form id="loginForm" onsubmit="handlePortalLogin(event)">
       <div class="mb-3">
         <label class="form-label">Username</label>
         <input type="text" id="loginUser" class="form-control" placeholder="Enter username" required autocomplete="username">
@@ -207,7 +140,7 @@
         <label class="form-label">Password</label>
         <div class="input-group">
           <input type="password" id="loginPass" class="form-control" placeholder="Enter password" required autocomplete="current-password">
-          <button type="button" class="btn eye-btn" id="eyeToggleBtn">
+          <button type="button" class="btn eye-btn" id="eyeToggleBtn" onclick="togglePasswordVisibility()">
             <i class="bi bi-eye" id="eyeIcon"></i>
           </button>
         </div>
@@ -217,30 +150,27 @@
     </form>
   </div>
 
-  <div id="pwaInstallBanner" class="pwa-install-prompt">
-    <img src="logo.png" alt="UT App">
-    <div class="pwa-prompt-text">
-      <div class="pwa-prompt-title">Install UT Portal App</div>
-      <div class="pwa-prompt-sub">Add to Home Screen for quick access</div>
-    </div>
-    <button type="button" class="btn-pwa-install" id="btnTriggerInstall">Install</button>
-    <button type="button" class="btn-pwa-close" id="btnCloseBanner" title="Close">&times;</button>
-  </div>
-
   <script>
-    // Unregister any old Service Workers so Firestore requests are never blocked
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(regs) {
-        regs.forEach(function(r) { r.unregister(); });
-      }).catch(function() {});
+    // 1. Clean up any old Service Workers & Caches so portal.html is never blocked
+    async function clearOldServiceWorkers() {
+      try {
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (const r of regs) {
+            await r.unregister();
+          }
+        }
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          for (const k of keys) {
+            await caches.delete(k);
+          }
+        }
+      } catch (e) {}
     }
-    if ('caches' in window) {
-      caches.keys().then(function(keys) {
-        keys.forEach(function(k) { caches.delete(k); });
-      }).catch(function() {});
-    }
+    clearOldServiceWorkers();
 
-    document.getElementById('eyeToggleBtn').addEventListener('click', function() {
+    function togglePasswordVisibility() {
       var passInput = document.getElementById('loginPass');
       var eyeIcon = document.getElementById('eyeIcon');
       if (passInput.type === 'password') {
@@ -250,7 +180,7 @@
         passInput.type = 'password';
         eyeIcon.className = 'bi bi-eye';
       }
-    });
+    }
 
     function updateOnlineStatus() {
       var badge = document.getElementById('connBadge');
@@ -266,55 +196,6 @@
     window.addEventListener('offline', updateOnlineStatus);
     updateOnlineStatus();
 
-    var isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-    var installBanner = document.getElementById('pwaInstallBanner');
-    var deferredPrompt = null;
-
-    if (!isStandalone) {
-      setTimeout(function() {
-        installBanner.classList.add('show');
-      }, 1000);
-    }
-
-    window.addEventListener('beforeinstallprompt', function(e) {
-      e.preventDefault();
-      deferredPrompt = e;
-      if (!isStandalone) {
-        installBanner.classList.add('show');
-      }
-    });
-
-    window.addEventListener('appinstalled', function() {
-      installBanner.classList.remove('show');
-      deferredPrompt = null;
-    });
-
-    document.getElementById('btnTriggerInstall').addEventListener('click', async function() {
-      if (deferredPrompt) {
-        deferredPrompt.prompt();
-        var choiceResult = await deferredPrompt.userChoice;
-        if (choiceResult.outcome === 'accepted') {
-          installBanner.classList.remove('show');
-        }
-        deferredPrompt = null;
-      } else {
-        var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        Swal.fire({
-          title: 'Install UT Portal App',
-          html: isIOS
-            ? '<div class="text-start small"><p class="mb-2">1. Tap the <b>Share (<i class="bi bi-box-arrow-up"></i>)</b> button at the bottom of Safari.</p><p class="mb-0">2. Select <b>"Add to Home Screen"</b> and tap <b>Add</b>.</p></div>'
-            : '<div class="text-start small"><p class="mb-2">1. Tap the <b>Menu (⋮)</b> icon in the top-right corner of your browser.</p><p class="mb-0">2. Select <b>"Install app"</b> or <b>"Add to Home screen"</b>.</p></div>',
-          icon: 'info',
-          confirmButtonText: 'OK',
-          confirmButtonColor: '#601a1a'
-        });
-      }
-    });
-
-    document.getElementById('btnCloseBanner').addEventListener('click', function() {
-      installBanner.classList.remove('show');
-    });
-
     const firebaseConfig = {
       apiKey: "AIzaSyCnQcsv8TekFkOyOPnb3UWZytPq7zBxLfI",
       authDomain: "my-apps-a87a3.firebaseapp.com",
@@ -326,26 +207,24 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-    db.settings({
-      experimentalForceLongPolling: true,
-      useFetchStreams: false,
-      merge: true
-    });
+    try {
+      db.settings({
+        experimentalForceLongPolling: true,
+        merge: true
+      });
+    } catch (e) {}
 
     let cachedEmps = [];
 
     db.collection('employees').onSnapshot(function(snap) {
-      cachedEmps = snap.docs.map(function(d) { return d.data(); });
-      var savedCode = (localStorage.getItem('ut_emp_code') || '').trim();
-      if (savedCode) {
-        var found = cachedEmps.find(function(e) {
-          return String(e.code).trim().toUpperCase() === savedCode.toUpperCase() && e.status !== 'Inactive';
-        });
-        if (found) window.location.href = 'portal.html';
-      }
-    });
+      cachedEmps = snap.docs.map(function(d) {
+        var data = d.data();
+        if (!data.code) data.code = d.id;
+        return data;
+      });
+    }, function() {});
 
-    document.getElementById('loginForm').addEventListener('submit', async function(e) {
+    async function handlePortalLogin(e) {
       e.preventDefault();
 
       var u = document.getElementById('loginUser').value.trim();
@@ -355,13 +234,17 @@
       btn.innerText = "Signing In...";
 
       try {
-        var emp = cachedEmps.find(function(item) { return item.username === u && item.password === p; });
+        await clearOldServiceWorkers();
+
+        var emp = cachedEmps.find(function(item) {
+          return String(item.username || '').trim() === u && String(item.password || '').trim() === p;
+        });
 
         if (!emp) {
           var timeoutPromise = new Promise(function(_, reject) {
             setTimeout(function() {
               reject(new Error("Connection timed out. Please check your internet connection."));
-            }, 10000);
+            }, 12000);
           });
 
           var queryPromise = db.collection('employees').get();
@@ -379,7 +262,10 @@
 
           snap.docs.forEach(function(doc) {
             var d = doc.data();
-            if (d.username === u && d.password === p) emp = d;
+            if (!d.code) d.code = doc.id;
+            if (String(d.username || '').trim() === u && String(d.password || '').trim() === p) {
+              emp = d;
+            }
           });
         }
 
@@ -403,8 +289,11 @@
           return;
         }
 
-        localStorage.setItem('ut_emp_code', String(emp.code).trim());
-        window.location.href = 'portal.html';
+        var cleanCode = String(emp.code || '').trim();
+        localStorage.setItem('ut_emp_code', cleanCode);
+        localStorage.setItem('ut_emp_profile', JSON.stringify(emp));
+
+        window.location.replace('portal.html');
 
       } catch (err) {
         Swal.fire({
@@ -417,7 +306,7 @@
         btn.disabled = false;
         btn.innerText = "Log In";
       }
-    });
+    }
   </script>
 </body>
 </html>
