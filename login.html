@@ -13,6 +13,29 @@
   <link rel="apple-touch-icon" href="emp.png">
   <link rel="manifest" href="manifest.json">
 
+  <script>
+    // Instant Auto-Login Check (Runs before page renders so reopening the app goes straight to portal.html)
+    (function checkPersistentLogin() {
+      var params = new URLSearchParams(window.location.search);
+      if (params.get('logout') === '1') return;
+
+      var savedCode = '';
+      try { savedCode = (localStorage.getItem('ut_emp_code') || '').trim(); } catch (e) {}
+
+      if (!savedCode) {
+        var match = document.cookie.match(/(?:^|;\s*)ut_emp_code=([^;]*)/);
+        if (match && match[1]) {
+          savedCode = decodeURIComponent(match[1]).trim();
+          try { localStorage.setItem('ut_emp_code', savedCode); } catch (e) {}
+        }
+      }
+
+      if (savedCode) {
+        window.location.replace('portal.html');
+      }
+    })();
+  </script>
+
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -82,7 +105,7 @@
       font-size: 0.95rem;
     }
     .btn-theme:hover { background-color: #4a1313; color: #ffffff; }
-    .status-pill { font-size: 0.78rem; padding: 5px 12px; border-radius: 20px; cursor: pointer; }
+    .status-pill { font-size: 0.78rem; padding: 5px 12px; border-radius: 20px; }
 
     /* Floating Install Prompt Banner */
     .pwa-install-prompt {
@@ -104,9 +127,7 @@
       gap: 12px;
       transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    .pwa-install-prompt.show {
-      transform: translateX(-50%) translateY(0);
-    }
+    .pwa-install-prompt.show { transform: translateX(-50%) translateY(0); }
     .pwa-install-prompt img {
       width: 44px;
       height: 44px;
@@ -142,9 +163,7 @@
 <body>
 
   <div class="mb-3">
-    <span id="connBadge" class="badge bg-secondary status-pill" onclick="fetchEmployeesViaRest()" title="Tap to refresh connection">
-      <span class="spinner-border spinner-border-sm me-1" style="width:0.75rem;height:0.75rem;"></span> Connecting...
-    </span>
+    <span id="connBadge" class="badge bg-secondary status-pill">Connecting...</span>
   </div>
 
   <div class="login-card">
@@ -188,33 +207,50 @@
   </div>
 
   <script>
-    // Clear any old Service Workers & Caches so the phone always loads fresh data
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(regs) {
-        regs.forEach(function(r) { r.unregister(); });
-      }).catch(function() {});
-    }
-    if ('caches' in window) {
-      caches.keys().then(function(keys) {
-        keys.forEach(function(k) { caches.delete(k); });
-      }).catch(function() {});
-    }
-
-    const PROJECT_ID = "my-apps-a87a3";
-    const API_KEY = "AIzaSyCnQcsv8TekFkOyOPnb3UWZytPq7zBxLfI";
     const firebaseConfig = {
-      apiKey: API_KEY,
-      authDomain: PROJECT_ID + ".firebaseapp.com",
-      projectId: PROJECT_ID,
-      storageBucket: PROJECT_ID + ".firebasestorage.app",
+      apiKey: "AIzaSyCnQcsv8TekFkOyOPnb3UWZytPq7zBxLfI",
+      authDomain: "my-apps-a87a3.firebaseapp.com",
+      projectId: "my-apps-a87a3",
+      storageBucket: "my-apps-a87a3.firebasestorage.app",
       messagingSenderId: "880270085984",
       appId: "1:880270085984:web:d65a0c381172def3af1805"
     };
 
-    let db = null;
-    let cachedEmps = [];
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
 
-    // ==================== FIRESTORE REST API BRIDGE (WORKS ON ALL MOBILE NETWORKS) ====================
+    let cachedEmps = [];
+    let isFallbackRunning = false;
+
+    // Save login session to both localStorage and a 1-year Cookie so closing the app never logs out
+    function savePersistentSession(empObj) {
+      var cleanCode = String(empObj.code || '').trim();
+      try {
+        localStorage.setItem('ut_emp_code', cleanCode);
+        localStorage.setItem('ut_emp_profile', JSON.stringify(empObj));
+      } catch (e) {}
+      document.cookie = "ut_emp_code=" + encodeURIComponent(cleanCode) + "; path=/; max-age=31536000; SameSite=Lax";
+    }
+
+    function togglePasswordVisibility() {
+      var passInput = document.getElementById('loginPass');
+      var eyeIcon = document.getElementById('eyeIcon');
+      if (passInput.type === 'password') {
+        passInput.type = 'text';
+        eyeIcon.className = 'bi bi-eye-slash';
+      } else {
+        passInput.type = 'password';
+        eyeIcon.className = 'bi bi-eye';
+      }
+    }
+
+    function updateBadge(count) {
+      var badge = document.getElementById('connBadge');
+      badge.className = 'badge bg-success status-pill';
+      badge.innerHTML = '<i class="bi bi-wifi"></i> Connected (' + count + ' Users)';
+    }
+
     function parseRestVal(v) {
       if (!v || typeof v !== 'object') return v;
       if (v.stringValue !== undefined) return v.stringValue;
@@ -232,81 +268,49 @@
       return '';
     }
 
-    function parseRestDoc(doc) {
-      var obj = { docId: doc.name ? doc.name.split('/').pop() : '' };
-      var fields = doc.fields || {};
-      Object.keys(fields).forEach(function(k) { obj[k] = parseRestVal(fields[k]); });
-      if (!obj.code && obj.docId) obj.code = obj.docId;
-      return obj;
-    }
-
-    function updateBadgeCount(count, errText) {
-      var badge = document.getElementById('connBadge');
-      if (count > 0) {
-        badge.className = 'badge bg-success status-pill';
-        badge.innerHTML = '<i class="bi bi-wifi"></i> Connected (' + count + ' Users)';
-      } else if (errText) {
-        badge.className = 'badge bg-danger status-pill';
-        badge.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Tap to Retry (' + errText + ')';
-      } else {
-        badge.className = 'badge bg-warning text-dark status-pill';
-        badge.innerHTML = '<i class="bi bi-arrow-repeat"></i> Syncing Users...';
-      }
-    }
-
-    async function fetchEmployeesViaRest() {
-      var url = "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID + "/databases/(default)/documents/employees?pageSize=300&key=" + API_KEY;
+    async function fetchEmployeesFallback() {
+      if (isFallbackRunning || cachedEmps.length > 0) return;
+      isFallbackRunning = true;
       try {
-        var res = await fetch(url, { cache: 'no-store' });
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        var data = await res.json();
-        var list = (data.documents || []).map(parseRestDoc);
-        cachedEmps = list;
-        updateBadgeCount(list.length);
-        return list;
-      } catch (err) {
-        if (cachedEmps.length === 0) {
-          updateBadgeCount(0, err.message || 'Offline');
-        }
-        throw err;
-      }
-    }
-
-    // 1. Immediately fetch via REST API (does not wait for Firebase SDK)
-    fetchEmployeesViaRest().catch(function() {});
-
-    // 2. Also initialize Firebase SDK safely in the background
-    try {
-      if (typeof firebase !== 'undefined') {
-        firebase.initializeApp(firebaseConfig);
-        db = firebase.firestore();
-        db.settings({ experimentalAutoDetectLongPolling: true });
-
-        db.collection('employees').onSnapshot(function(snap) {
-          var list = snap.docs.map(function(d) {
-            var data = d.data();
-            if (!data.code) data.code = d.id;
-            return data;
+        var url = "https://firestore.googleapis.com/v1/projects/my-apps-a87a3/databases/(default)/documents/employees?key=" + firebaseConfig.apiKey;
+        var res = await fetch(url);
+        if (res.ok) {
+          var data = await res.json();
+          var list = (data.documents || []).map(function(doc) {
+            var obj = { docId: doc.name ? doc.name.split('/').pop() : '' };
+            var fields = doc.fields || {};
+            Object.keys(fields).forEach(function(k) { obj[k] = parseRestVal(fields[k]); });
+            if (!obj.code && obj.docId) obj.code = obj.docId;
+            return obj;
           });
           if (list.length > 0) {
             cachedEmps = list;
-            updateBadgeCount(list.length);
+            updateBadge(list.length);
           }
-        }, function() {});
-      }
-    } catch (sdkErr) {}
-
-    function togglePasswordVisibility() {
-      var passInput = document.getElementById('loginPass');
-      var eyeIcon = document.getElementById('eyeIcon');
-      if (passInput.type === 'password') {
-        passInput.type = 'text';
-        eyeIcon.className = 'bi bi-eye-slash';
-      } else {
-        passInput.type = 'password';
-        eyeIcon.className = 'bi bi-eye';
-      }
+        }
+      } catch (e) {}
+      isFallbackRunning = false;
     }
+
+    db.collection('employees').onSnapshot(function(snap) {
+      var list = snap.docs.map(function(d) {
+        var data = d.data();
+        if (!data.code) data.code = d.id;
+        return data;
+      });
+      if (list.length > 0) {
+        cachedEmps = list;
+        updateBadge(list.length);
+      } else {
+        fetchEmployeesFallback();
+      }
+    }, function() {
+      fetchEmployeesFallback();
+    });
+
+    setTimeout(function() {
+      if (cachedEmps.length === 0) fetchEmployeesFallback();
+    }, 3500);
 
     function findMatchingUser(list, inputUser) {
       var target = String(inputUser || '').trim().toLowerCase();
@@ -335,33 +339,19 @@
       btn.innerText = "Signing In...";
 
       try {
-        var userRecord = findMatchingUser(cachedEmps, u);
-
-        if (!userRecord || !isPasswordValid(userRecord, p)) {
-          try {
-            await fetchEmployeesViaRest();
-          } catch (restErr) {
-            if (db) {
-              var snap = await db.collection('employees').get();
-              cachedEmps = snap.docs.map(function(doc) {
-                var d = doc.data();
-                if (!d.code) d.code = doc.id;
-                return d;
-              });
-            }
-          }
-          userRecord = findMatchingUser(cachedEmps, u);
-        }
-
         if (cachedEmps.length === 0) {
-          Swal.fire({
-            title: 'Connection Error',
-            text: 'Could not reach the database from your phone. Please check your internet connection.',
-            icon: 'warning',
-            confirmButtonColor: '#601a1a'
-          });
-          return;
+          await fetchEmployeesFallback();
         }
+        if (cachedEmps.length === 0) {
+          var snap = await db.collection('employees').get();
+          cachedEmps = snap.docs.map(function(doc) {
+            var d = doc.data();
+            if (!d.code) d.code = doc.id;
+            return d;
+          });
+        }
+
+        var userRecord = findMatchingUser(cachedEmps, u);
 
         if (!userRecord) {
           Swal.fire({
@@ -393,9 +383,8 @@
           return;
         }
 
-        localStorage.setItem('ut_emp_code', String(userRecord.code).trim());
-        localStorage.setItem('ut_emp_profile', JSON.stringify(userRecord));
-        window.location.href = 'portal.html';
+        savePersistentSession(userRecord);
+        window.location.replace('portal.html');
 
       } catch (err) {
         Swal.fire({
@@ -410,7 +399,7 @@
       }
     }
 
-    // ==================== PWA INSTALL BANNER LOGIC ====================
+    // PWA Install Prompt
     var isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
     var installBanner = document.getElementById('pwaInstallBanner');
     var deferredPrompt = null;
