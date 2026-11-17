@@ -113,8 +113,6 @@
       padding: 5px 12px;
       border-radius: 20px;
     }
-
-    /* Floating Install Prompt Banner */
     .pwa-install-prompt {
       position: fixed;
       bottom: 20px;
@@ -186,12 +184,10 @@
 </head>
 <body>
 
-  <!-- Online / Offline Status -->
   <div class="mb-3">
     <span id="connBadge" class="badge bg-secondary status-pill">Checking...</span>
   </div>
 
-  <!-- Login Card -->
   <div class="login-card">
     <div class="text-center">
       <div class="logo-box">
@@ -221,7 +217,6 @@
     </form>
   </div>
 
-  <!-- Floating App Install Prompt Banner -->
   <div id="pwaInstallBanner" class="pwa-install-prompt">
     <img src="logo.png" alt="UT App">
     <div class="pwa-prompt-text">
@@ -232,8 +227,19 @@
     <button type="button" class="btn-pwa-close" id="btnCloseBanner" title="Close">&times;</button>
   </div>
 
-  <!-- 1. UI, Password Toggle & PWA Install Prompt Logic -->
   <script>
+    // Unregister any old Service Workers so Firestore requests are never blocked
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        regs.forEach(function(r) { r.unregister(); });
+      }).catch(function() {});
+    }
+    if ('caches' in window) {
+      caches.keys().then(function(keys) {
+        keys.forEach(function(k) { caches.delete(k); });
+      }).catch(function() {});
+    }
+
     document.getElementById('eyeToggleBtn').addEventListener('click', function() {
       var passInput = document.getElementById('loginPass');
       var eyeIcon = document.getElementById('eyeIcon');
@@ -259,10 +265,6 @@
     window.addEventListener('online', updateOnlineStatus);
     window.addEventListener('offline', updateOnlineStatus);
     updateOnlineStatus();
-
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js').catch(function() {});
-    }
 
     var isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
     var installBanner = document.getElementById('pwaInstallBanner');
@@ -312,10 +314,7 @@
     document.getElementById('btnCloseBanner').addEventListener('click', function() {
       installBanner.classList.remove('show');
     });
-  </script>
 
-  <!-- 2. Firebase Connection & Authentication Logic -->
-  <script>
     const firebaseConfig = {
       apiKey: "AIzaSyCnQcsv8TekFkOyOPnb3UWZytPq7zBxLfI",
       authDomain: "my-apps-a87a3.firebaseapp.com",
@@ -327,8 +326,11 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-    db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
-    db.enablePersistence({ synchronizeTabs: true }).catch(function() {});
+    db.settings({
+      experimentalForceLongPolling: true,
+      useFetchStreams: false,
+      merge: true
+    });
 
     let cachedEmps = [];
 
@@ -359,7 +361,7 @@
           var timeoutPromise = new Promise(function(_, reject) {
             setTimeout(function() {
               reject(new Error("Connection timed out. Please check your internet connection."));
-            }, 8000);
+            }, 10000);
           });
 
           var queryPromise = db.collection('employees').get();
@@ -401,7 +403,7 @@
           return;
         }
 
-        localStorage.setItem('ut_emp_code', emp.code);
+        localStorage.setItem('ut_emp_code', String(emp.code).trim());
         window.location.href = 'portal.html';
 
       } catch (err) {
