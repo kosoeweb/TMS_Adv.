@@ -32,7 +32,7 @@
         <div style="line-height: 1.1;">Universal Tractor Co., Ltd.<br><small style="font-size: 0.75rem;">Employee Portal</small></div>
       </span>
       <div class="d-flex align-items-center gap-2">
-        <span id="connStatus" class="badge bg-secondary"><i class="bi bi-arrow-repeat"></i> Connecting...</span>
+        <span id="connStatus" class="badge bg-secondary" onclick="syncAllPortalDataViaRest()" style="cursor:pointer;"><i class="bi bi-arrow-repeat"></i> Connecting...</span>
         <button class="btn btn-outline-light btn-sm" onclick="logoutEmp()"><i class="bi bi-box-arrow-right"></i> Logout</button>
       </div>
     </div>
@@ -167,6 +167,12 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        regs.forEach(function(r) { r.unregister(); });
+      }).catch(function() {});
+    }
+
     const PROJECT_ID = "my-apps-a87a3";
     const API_KEY = "AIzaSyCnQcsv8TekFkOyOPnb3UWZytPq7zBxLfI";
     const firebaseConfig = {
@@ -177,9 +183,15 @@
       messagingSenderId: "880270085984",
       appId: "1:880270085984:web:d65a0c381172def3af1805"
     };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    db.settings({ experimentalForceLongPolling: true });
+
+    let db = null;
+    try {
+      if (typeof firebase !== 'undefined') {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        db.settings({ experimentalAutoDetectLongPolling: true });
+      }
+    } catch (e) {}
 
     const loggedEmpCode = (localStorage.getItem('ut_emp_code') || '').trim();
     if (!loggedEmpCode) {
@@ -210,7 +222,7 @@
       { action_type: 'Check-Out', min_mins: 60, max_mins: 999, subcategory: 'Overtime', color_class: 'text-primary', show_mins: true }
     ];
 
-    // ==================== FIRESTORE REST API BRIDGE FOR MOBILE ====================
+    // ==================== FIRESTORE REST API BRIDGE ====================
     function parseRestVal(v) {
       if (!v || typeof v !== 'object') return v;
       if (v.stringValue !== undefined) return v.stringValue;
@@ -253,28 +265,27 @@
     }
 
     async function fetchCollectionRest(colName) {
-      var url = "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID + "/databases/(default)/documents/" + colName + "?pageSize=500&key=" + API_KEY + "&t=" + Date.now();
+      var url = "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID + "/databases/(default)/documents/" + colName + "?pageSize=500&key=" + API_KEY;
       var res = await fetch(url, { cache: 'no-store' });
       if (!res.ok) throw new Error("HTTP " + res.status);
       var data = await res.json();
       return (data.documents || []).map(parseRestDoc);
     }
 
-    async function addDocumentWithRestFallback(colName, payload) {
-      try {
-        var sdkPromise = db.collection(colName).add(payload);
-        var timeoutPromise = new Promise(function(_, reject) {
-          setTimeout(function() { reject(new Error("SDK_TIMEOUT")); }, 5000);
-        });
-        await Promise.race([sdkPromise, timeoutPromise]);
-      } catch (err) {
-        var url = "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID + "/databases/(default)/documents/" + colName + "?key=" + API_KEY;
-        var res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fields: toRestFields(payload) })
-        });
-        if (!res.ok) throw new Error("Failed to save to database (HTTP " + res.status + ")");
+    // Write directly to Firestore Cloud via REST POST first (instant on mobile)
+    async function saveDocumentDirectRest(colName, payload) {
+      var url = "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID + "/databases/(default)/documents/" + colName + "?key=" + API_KEY;
+      var res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fields: toRestFields(payload) })
+      });
+      if (!res.ok) {
+        if (db) {
+          await db.collection(colName).add(payload);
+          return;
+        }
+        throw new Error("Database write error (HTTP " + res.status + ")");
       }
     }
 
@@ -327,7 +338,9 @@
 
         evaluatePendingExams();
         renderMyLedger();
-      } catch (e) {}
+      } catch (e) {
+        updateStatusBadge(false, false);
+      }
     }
 
     function renderProfileCard(emp) {
@@ -358,8 +371,8 @@
         el.className = 'badge bg-success';
         el.innerHTML = '<i class="bi bi-wifi"></i> Live';
       } else {
-        el.className = 'badge bg-secondary';
-        el.innerHTML = '<i class="bi bi-wifi-off"></i> Offline';
+        el.className = 'badge bg-danger';
+        el.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Tap to Sync';
       }
     }
 
@@ -500,86 +513,71 @@
       syncAllPortalDataViaRest();
       evaluateAttendanceState(true);
 
-      // Real-time SDK listeners
-      db.collection('employees').onSnapshot(snap => {
-        if (snap.empty) return;
-        updateStatusBadge(true, false);
-        const found = snap.docs.map(d => {
-          const data = d.data();
-          if (!data.code) data.code = d.id;
-          return data;
-        }).find(e => String(e.code).trim().toUpperCase() === loggedEmpCode.toUpperCase());
+      // Optional real-time SDK listeners
+      if (db) {
+        db.collection('employees').onSnapshot(snap => {
+          if (snap.empty) return;
+          updateStatusBadge(true, false);
+          const found = snap.docs.map(d => {
+            const data = d.data();
+            if (!data.code) data.code = d.id;
+            return data;
+          }).find(e => String(e.code).trim().toUpperCase() === loggedEmpCode.toUpperCase());
 
-        if (found) {
-          currentEmp = found;
-          localStorage.setItem('ut_emp_profile', JSON.stringify(found));
-          renderProfileCard(currentEmp);
+          if (found) {
+            currentEmp = found;
+            localStorage.setItem('ut_emp_profile', JSON.stringify(found));
+            renderProfileCard(currentEmp);
+            refreshLeaveDropdown();
+            evaluatePendingExams();
+            applyAttendanceUI();
+          }
+        }, () => {});
+
+        db.collection('tms_settings').onSnapshot(snap => {
+          if (snap.empty) return;
+          sysSettings = {};
+          leaveTypesMap = {};
+          attendanceRules = [];
+          let systemKeys = ['Office Lat', 'Office Lng', 'Geo Radius', 'Work Start', 'Work End'];
+          snap.docs.forEach(d => {
+            let r = d.data();
+            if (systemKeys.includes(r.category)) sysSettings[r.category] = r.subcategory;
+            if (r.category === 'Leave Type') leaveTypesMap[r.subcategory] = Number(r.allowed_days || 0);
+            if (r.category === 'Attendance Rule') attendanceRules.push(r);
+          });
           refreshLeaveDropdown();
-          evaluatePendingExams();
+          evaluateAttendanceState(false);
+        }, () => {});
+
+        db.collection('attendance').onSnapshot(snap => {
+          if (snap.empty && myAttList.length > 0) return;
+          updateStatusBadge(true, false);
+          myAttList = snap.docs
+            .map(d => d.data())
+            .filter(a => String(a.emp_code || '').trim().toUpperCase() === loggedEmpCode.toUpperCase());
+          attLoaded = true;
           applyAttendanceUI();
-        }
-      });
+          renderMyLedger();
+        }, () => {});
 
-      db.collection('tms_settings').onSnapshot(snap => {
-        if (snap.empty) return;
-        sysSettings = {};
-        leaveTypesMap = {};
-        attendanceRules = [];
-        let systemKeys = ['Office Lat', 'Office Lng', 'Geo Radius', 'Work Start', 'Work End'];
-        snap.docs.forEach(d => {
-          let r = d.data();
-          if (systemKeys.includes(r.category)) sysSettings[r.category] = r.subcategory;
-          if (r.category === 'Leave Type') leaveTypesMap[r.subcategory] = Number(r.allowed_days || 0);
-          if (r.category === 'Attendance Rule') attendanceRules.push(r);
-        });
-        refreshLeaveDropdown();
-        evaluateAttendanceState(false);
-      });
+        db.collection('leave').onSnapshot(snap => {
+          if (snap.empty && myLeaveList.length > 0) return;
+          myLeaveList = snap.docs
+            .map(d => d.data())
+            .filter(l => String(l.emp_code || '').trim().toUpperCase() === loggedEmpCode.toUpperCase());
+          checkLeaveType();
+          renderMyLedger();
+        }, () => {});
 
-      db.collection('attendance').onSnapshot(snap => {
-        if (snap.empty && myAttList.length > 0) return;
-        updateStatusBadge(true, false);
-        myAttList = snap.docs
-          .map(d => d.data())
-          .filter(a => String(a.emp_code || '').trim().toUpperCase() === loggedEmpCode.toUpperCase());
-        attLoaded = true;
-        applyAttendanceUI();
-        renderMyLedger();
-      });
-
-      db.collection('leave').onSnapshot(snap => {
-        if (snap.empty && myLeaveList.length > 0) return;
-        myLeaveList = snap.docs
-          .map(d => d.data())
-          .filter(l => String(l.emp_code || '').trim().toUpperCase() === loggedEmpCode.toUpperCase());
-        checkLeaveType();
-        renderMyLedger();
-      });
-
-      db.collection('records').onSnapshot(snap => {
-        if (snap.empty && myRecList.length > 0) return;
-        myRecList = snap.docs
-          .map(d => d.data())
-          .filter(r => String(r.emp_code || '').trim().toUpperCase() === loggedEmpCode.toUpperCase());
-        renderMyLedger();
-      });
-
-      db.collection('tms_exams').onSnapshot(snap => {
-        if (snap.empty && allExams.length > 0) return;
-        allExams = snap.docs.map(d => d.data());
-        examsLoaded = true;
-        evaluatePendingExams();
-      });
-
-      db.collection('exam_results').onSnapshot(snap => {
-        if (snap.empty && myExamResults.length > 0) return;
-        myExamResults = snap.docs
-          .map(d => ({ docId: d.id, ...d.data() }))
-          .filter(r => String(r.emp_code || '').trim().toUpperCase() === loggedEmpCode.toUpperCase());
-        resultsLoaded = true;
-        evaluatePendingExams();
-        renderMyLedger();
-      });
+        db.collection('records').onSnapshot(snap => {
+          if (snap.empty && myRecList.length > 0) return;
+          myRecList = snap.docs
+            .map(d => d.data())
+            .filter(r => String(r.emp_code || '').trim().toUpperCase() === loggedEmpCode.toUpperCase());
+          renderMyLedger();
+        }, () => {});
+      }
     };
 
     function evaluateAttendanceState(requestNewGps = false) {
@@ -697,8 +695,10 @@
       };
 
       try {
-        await addDocumentWithRestFallback('attendance', payload);
-        myAttList.push(payload);
+        await saveDocumentDirectRest('attendance', payload);
+        if (!myAttList.some(a => a.created_at === payload.created_at)) {
+          myAttList.push(payload);
+        }
         updateStatusBadge(true, false);
         applyAttendanceUI();
         renderMyLedger();
@@ -883,8 +883,10 @@
       };
 
       try {
-        await addDocumentWithRestFallback('leave', payload);
-        myLeaveList.push(payload);
+        await saveDocumentDirectRest('leave', payload);
+        if (!myLeaveList.some(l => l.created_at === payload.created_at)) {
+          myLeaveList.push(payload);
+        }
         updateStatusBadge(true, false);
         checkLeaveType();
         renderMyLedger();
