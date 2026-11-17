@@ -282,6 +282,13 @@
   </div>
 
   <script>
+    // Clear any old Service Workers so mobile requests are never intercepted
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        regs.forEach(function(r) { r.unregister(); });
+      }).catch(function() {});
+    }
+
     const PROJECT_ID = "my-apps-a87a3";
     const API_KEY = "AIzaSyCnQcsv8TekFkOyOPnb3UWZytPq7zBxLfI";
     const firebaseConfig = {
@@ -292,9 +299,15 @@
       messagingSenderId: "880270085984",
       appId: "1:880270085984:web:d65a0c381172def3af1805"
     };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    db.settings({ experimentalForceLongPolling: true });
+
+    let db = null;
+    try {
+      if (typeof firebase !== 'undefined') {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        db.settings({ experimentalAutoDetectLongPolling: true });
+      }
+    } catch (e) {}
 
     const urlParams = new URLSearchParams(window.location.search);
     let targetExamId = (urlParams.get('exam_id') || '').trim();
@@ -368,7 +381,7 @@
     }
 
     async function fetchCollectionRest(colName) {
-      var url = "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID + "/databases/(default)/documents/" + colName + "?pageSize=500&key=" + API_KEY + "&t=" + Date.now();
+      var url = "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID + "/databases/(default)/documents/" + colName + "?pageSize=500&key=" + API_KEY;
       var res = await fetch(url, { cache: 'no-store' });
       if (!res.ok) throw new Error("HTTP " + res.status);
       var data = await res.json();
@@ -377,7 +390,7 @@
     }
 
     async function fetchSingleDocRest(colName, docId) {
-      var url = "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID + "/databases/(default)/documents/" + colName + "/" + encodeURIComponent(docId) + "?key=" + API_KEY + "&t=" + Date.now();
+      var url = "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID + "/databases/(default)/documents/" + colName + "/" + encodeURIComponent(docId) + "?key=" + API_KEY;
       var res = await fetch(url, { cache: 'no-store' });
       if (!res.ok) return null;
       var doc = await res.json();
@@ -385,21 +398,20 @@
       return doc && doc.fields ? parseRestDoc(doc) : null;
     }
 
-    async function addDocumentWithRestFallback(colName, payload) {
-      try {
-        var sdkPromise = db.collection(colName).add(payload);
-        var timeoutPromise = new Promise(function(_, reject) {
-          setTimeout(function() { reject(new Error("SDK_TIMEOUT")); }, 5000);
-        });
-        await Promise.race([sdkPromise, timeoutPromise]);
-      } catch (err) {
-        var url = "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID + "/databases/(default)/documents/" + colName + "?key=" + API_KEY;
-        var res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fields: toRestFields(payload) })
-        });
-        if (!res.ok) throw new Error("Failed to save result to database (HTTP " + res.status + ")");
+    // Write directly via HTTPS REST POST first so mobile submissions never hang
+    async function saveDocumentDirectRest(colName, payload) {
+      var url = "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID + "/databases/(default)/documents/" + colName + "?key=" + API_KEY;
+      var res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fields: toRestFields(payload) })
+      });
+      if (!res.ok) {
+        if (db) {
+          await db.collection(colName).add(payload);
+          return;
+        }
+        throw new Error("Failed to save result to database (HTTP " + res.status + ")");
       }
     }
 
@@ -426,7 +438,7 @@
       if (resultDocIdParam) {
         try {
           let rData = await fetchSingleDocRest('exam_results', resultDocIdParam);
-          if (!rData) {
+          if (!rData && db) {
             const rDoc = await db.collection('exam_results').doc(resultDocIdParam).get();
             if (rDoc.exists) rData = rDoc.data();
           }
@@ -485,8 +497,10 @@
         try {
           emps = await fetchCollectionRest('employees');
         } catch (restErr) {
-          const snap = await db.collection('employees').get();
-          emps = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+          if (db) {
+            const snap = await db.collection('employees').get();
+            emps = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+          }
         }
 
         const emp = emps.find(item => {
@@ -533,8 +547,10 @@
       try {
         allResults = await fetchCollectionRest('exam_results');
       } catch (e) {
-        const resSnap = await db.collection('exam_results').get();
-        allResults = resSnap.docs.map(d => d.data());
+        if (db) {
+          const resSnap = await db.collection('exam_results').get();
+          allResults = resSnap.docs.map(d => d.data());
+        }
       }
 
       const myResults = allResults.filter(
@@ -546,8 +562,10 @@
         try {
           allExamsList = await fetchCollectionRest('tms_exams');
         } catch (e) {
-          const exSnap = await db.collection('tms_exams').get();
-          allExamsList = exSnap.docs.map(d => d.data());
+          if (db) {
+            const exSnap = await db.collection('tms_exams').get();
+            allExamsList = exSnap.docs.map(d => d.data());
+          }
         }
 
         document.getElementById('examListBox').style.display = 'block';
@@ -593,8 +611,10 @@
           exData = allExamsList.find(x => String(x.exam_id || x.docId).trim().toUpperCase() === targetExamId.toUpperCase());
         }
       } catch (e) {
-        const exDoc = await db.collection('tms_exams').doc(targetExamId.toUpperCase()).get();
-        if (exDoc.exists) exData = exDoc.data();
+        if (db) {
+          const exDoc = await db.collection('tms_exams').doc(targetExamId.toUpperCase()).get();
+          if (exDoc.exists) exData = exDoc.data();
+        }
       }
 
       if (exData) {
@@ -760,7 +780,7 @@
       };
 
       try {
-        await addDocumentWithRestFallback('exam_results', resultPayload);
+        await saveDocumentDirectRest('exam_results', resultPayload);
         updateStatusBadge(true, false);
         renderResultSheet(resultPayload);
         Swal.fire({
