@@ -27,7 +27,7 @@
         <div style="line-height: 1.1;">Universal Tractor Co., Ltd.<br><small style="font-size: 0.75rem;">Employee Portal</small></div>
       </span>
       <div class="d-flex align-items-center gap-2">
-        <span id="connStatus" class="badge bg-success"><i class="bi bi-wifi"></i> Live</span>
+        <span id="connStatus" class="badge bg-secondary"><i class="bi bi-arrow-repeat"></i> Connecting...</span>
         <button class="btn btn-outline-light btn-sm" onclick="logoutEmp()"><i class="bi bi-box-arrow-right"></i> Logout</button>
       </div>
     </div>
@@ -162,6 +162,24 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+    // 1. Automatically remove stuck/old Service Workers & Caches on mobile phones
+    (function cleanStuckMobileServiceWorkers() {
+      const cleanupVersion = 'ut_sw_cleaned_v4';
+      if (!localStorage.getItem(cleanupVersion)) {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(regs => {
+            regs.forEach(r => r.unregister());
+          }).catch(() => {});
+        }
+        if ('caches' in window) {
+          caches.keys().then(keys => {
+            keys.forEach(k => caches.delete(k));
+          }).catch(() => {});
+        }
+        localStorage.setItem(cleanupVersion, 'true');
+      }
+    })();
+
     const firebaseConfig = {
       apiKey: "AIzaSyCnQcsv8TekFkOyOPnb3UWZytPq7zBxLfI",
       authDomain: "my-apps-a87a3.firebaseapp.com",
@@ -172,8 +190,13 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-    db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
-    db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+
+    // 2. Force Long-Polling for mobile networks & avoid local IndexedDB trap
+    db.settings({
+      experimentalForceLongPolling: true,
+      useFetchStreams: false,
+      merge: true
+    });
 
     const loggedEmpCode = (localStorage.getItem('ut_emp_code') || '').trim();
     if (!loggedEmpCode) window.location.href = 'login.html';
@@ -196,6 +219,22 @@
       { action_type: 'Check-Out', min_mins: 0, max_mins: 59, subcategory: 'On Time', color_class: 'text-success', show_mins: false },
       { action_type: 'Check-Out', min_mins: 60, max_mins: 999, subcategory: 'Overtime', color_class: 'text-primary', show_mins: true }
     ];
+
+    function updateStatusBadge(fromCache = !navigator.onLine, hasPending = false) {
+      const el = document.getElementById('connStatus');
+      if (hasPending) {
+        el.className = 'badge bg-warning text-dark';
+        el.innerHTML = '<i class="bi bi-cloud-arrow-up"></i> Syncing...';
+      } else if (!navigator.onLine || fromCache) {
+        el.className = 'badge bg-secondary';
+        el.innerHTML = '<i class="bi bi-wifi-off"></i> Offline';
+      } else {
+        el.className = 'badge bg-success';
+        el.innerHTML = '<i class="bi bi-wifi"></i> Live';
+      }
+    }
+    window.addEventListener('online', () => updateStatusBadge(false));
+    window.addEventListener('offline', () => updateStatusBadge(true));
 
     function getTodayStr() {
       const d = new Date();
@@ -262,16 +301,13 @@
       return false;
     }
 
+    // Determine today's Check-In / Check-Out status directly from verified server records
     function getTodayAttendanceStatus() {
-      const todayKey = getTodayStr();
-      const empKey = (currentEmp ? currentEmp.code : loggedEmpCode).toUpperCase();
-      const localLock = JSON.parse(localStorage.getItem(`ut_att_${empKey}_${todayKey}`) || '{"in":false,"out":false,"inStatus":"","outStatus":""}');
-
       let status = {
-        in: Boolean(localLock.in),
-        out: Boolean(localLock.out),
-        inStatus: localLock.inStatus || '',
-        outStatus: localLock.outStatus || ''
+        in: false,
+        out: false,
+        inStatus: '',
+        outStatus: ''
       };
 
       myAttList.filter(a => isRecordFromToday(a)).forEach(a => {
@@ -285,9 +321,6 @@
         }
       });
 
-      if (status.in || status.out) {
-        localStorage.setItem(`ut_att_${empKey}_${todayKey}`, JSON.stringify(status));
-      }
       return status;
     }
 
@@ -343,14 +376,13 @@
     }
 
     window.onload = () => {
-      // 1. Employee Profile Listener
-      db.collection('employees').onSnapshot(snap => {
-        document.getElementById('connStatus').className = 'badge bg-success';
-        document.getElementById('connStatus').innerHTML = '<i class="bi bi-wifi"></i> Live';
+      // 1. Employee Profile Listener with real metadata inspection
+      db.collection('employees').onSnapshot({ includeMetadataChanges: true }, snap => {
+        updateStatusBadge(snap.metadata.fromCache, snap.metadata.hasPendingWrites);
 
         const found = snap.docs.map(d => d.data()).find(e => String(e.code).trim().toUpperCase() === loggedEmpCode.toUpperCase());
         if (!found || found.status === 'Inactive') {
-          if (snap.docs.length > 0) logoutEmp();
+          if (!snap.metadata.fromCache && snap.docs.length > 0) logoutEmp();
           return;
         }
         currentEmp = found;
@@ -370,8 +402,7 @@
         evaluatePendingExams();
         applyAttendanceUI();
       }, () => {
-        document.getElementById('connStatus').className = 'badge bg-secondary';
-        document.getElementById('connStatus').innerHTML = '<i class="bi bi-wifi-off"></i> Offline';
+        updateStatusBadge(true, false);
       });
 
       // 2. Settings & Dynamic Attendance Rules Listener
@@ -391,16 +422,20 @@
       });
 
       // 3. Attendance, Leave & Records Listeners
-      db.collection('attendance').onSnapshot(snap => {
+      db.collection('attendance').onSnapshot({ includeMetadataChanges: true }, snap => {
+        updateStatusBadge(snap.metadata.fromCache, snap.metadata.hasPendingWrites);
         myAttList = snap.docs
           .map(d => d.data())
           .filter(a => String(a.emp_code || '').trim().toUpperCase() === loggedEmpCode.toUpperCase());
         attLoaded = true;
         applyAttendanceUI();
         renderMyLedger();
+      }, () => {
+        updateStatusBadge(true, false);
       });
 
-      db.collection('leave').onSnapshot(snap => {
+      db.collection('leave').onSnapshot({ includeMetadataChanges: true }, snap => {
+        updateStatusBadge(snap.metadata.fromCache, snap.metadata.hasPendingWrites);
         myLeaveList = snap.docs
           .map(d => d.data())
           .filter(l => String(l.emp_code || '').trim().toUpperCase() === loggedEmpCode.toUpperCase());
@@ -514,6 +549,7 @@
 
     async function submitAtt(type) {
       if (!isGeoOK) return Swal.fire("Error", "You must be inside the office zone.", "error");
+      if (!navigator.onLine) return Swal.fire("Offline", "No internet connection. Please connect to the internet and try again.", "error");
 
       const currentStatus = getTodayAttendanceStatus();
       if (type === 'Check-In' && currentStatus.in) {
@@ -527,22 +563,18 @@
 
       const actionTimeInfo = getTimeStatusInfo(type);
       const recordedStatusLabel = actionTimeInfo.label;
-
       const todayStr = getTodayStr();
-      const empKey = (currentEmp ? currentEmp.code : loggedEmpCode).toUpperCase();
-      const updatedStatus = {
-        in: type === 'Check-In' ? true : currentStatus.in,
-        out: type === 'Check-Out' ? true : currentStatus.out,
-        inStatus: type === 'Check-In' ? recordedStatusLabel : currentStatus.inStatus,
-        outStatus: type === 'Check-Out' ? recordedStatusLabel : currentStatus.outStatus
-      };
-      localStorage.setItem(`ut_att_${empKey}_${todayStr}`, JSON.stringify(updatedStatus));
-      applyAttendanceUI();
+
+      const btn = document.getElementById(type === 'Check-In' ? 'btnIn' : 'btnOut');
+      const origHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving to Server...';
+      updateStatusBadge(false, true);
 
       let payload = {
         date_str: todayStr,
         time_str: new Date().toTimeString().slice(0, 8),
-        emp_code: currentEmp ? currentEmp.code : loggedEmpCode,
+        emp_code: currentEmp ? String(currentEmp.code).trim() : loggedEmpCode,
         emp_name: currentEmp ? currentEmp.name : '',
         type: type,
         location: `${cLat}, ${cLng}`,
@@ -551,8 +583,20 @@
         created_at: Date.now()
       };
 
-      await db.collection('attendance').add(payload);
-      Swal.fire("Recorded", `${type} (${recordedStatusLabel}) saved successfully.`, "success");
+      try {
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Server connection timed out. Please check your internet or VPN connection and try again.")), 12000)
+        );
+        await Promise.race([db.collection('attendance').add(payload), timeoutPromise]);
+        updateStatusBadge(false, false);
+        applyAttendanceUI();
+        Swal.fire("Recorded", `${type} (${recordedStatusLabel}) has been saved to the server.`, "success");
+      } catch (err) {
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+        updateStatusBadge(true, false);
+        Swal.fire("Sync Failed", err.message, "error");
+      }
     }
 
     // ==================== PENDING EXAM POP-UP & TAB LOGIC ====================
@@ -706,11 +750,18 @@
       let reason = document.getElementById('lReason').value;
 
       if (!type || !start || !days) return Swal.fire("Incomplete", "Please fill in all required fields.", "warning");
+      if (!navigator.onLine) return Swal.fire("Offline", "No internet connection. Please connect to the internet and try again.", "error");
+
+      const btn = document.getElementById('btnLeave');
+      const origHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Submitting...';
+      updateStatusBadge(false, true);
 
       let payload = {
         apply_date: getTodayStr(),
-        emp_code: currentEmp.code,
-        emp_name: currentEmp.name,
+        emp_code: currentEmp ? String(currentEmp.code).trim() : loggedEmpCode,
+        emp_name: currentEmp ? currentEmp.name : '',
         leave_type: type,
         start_date: start,
         end_date: document.getElementById('lEnd').value,
@@ -720,12 +771,23 @@
         created_at: Date.now()
       };
 
-      await db.collection('leave').add(payload);
-      Swal.fire("Submitted", "Leave application submitted successfully.", "success");
-      ['lStart', 'lEnd', 'lDays', 'lReason'].forEach(id => document.getElementById(id).value = '');
+      try {
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Server connection timed out. Please check your internet or VPN connection.")), 12000)
+        );
+        await Promise.race([db.collection('leave').add(payload), timeoutPromise]);
+        updateStatusBadge(false, false);
+        Swal.fire("Submitted", "Leave application submitted to server successfully.", "success");
+        ['lStart', 'lEnd', 'lDays', 'lReason'].forEach(id => document.getElementById(id).value = '');
+      } catch (err) {
+        updateStatusBadge(true, false);
+        Swal.fire("Submission Failed", err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+      }
     }
 
-    // Ledger Renderer (100% synced with Dashboard Detailed Employee Ledger)
     function renderMyLedger() {
       let combined = [];
       let totalScore = 0;
@@ -760,7 +822,7 @@
         });
       });
 
-      // 3. HR Transactions (Excluding duplicate EXAM / TRAINING log entries)
+      // 3. HR Transactions
       myRecList.forEach(r => {
         if (r.type === 'EXAM / TRAINING') return;
         let dObj = parseFlexibleDate(r.date_str, r.created_at);
