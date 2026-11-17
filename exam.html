@@ -134,7 +134,7 @@
   <nav class="navbar navbar-dark mb-4 shadow-sm">
     <div class="container d-flex justify-content-between align-items-center">
       <a class="navbar-brand fw-bold text-white text-decoration-none d-flex align-items-center" href="portal.html">
-        <img src="logo.png" id="navLogoImg" style="height: 38px; margin-right: 12px; border-radius: 5px;">
+        <img src="logo.png" id="navLogoImg" alt="UT Logo" style="height: 38px; margin-right: 12px; border-radius: 5px;">
         <div style="line-height: 1.15;">
           Universal Tractor Co., Ltd.<br>
           <small style="font-size: 0.78rem; font-weight: 400;">Online Assessment Center</small>
@@ -167,7 +167,7 @@
     <!-- 2. Quick Sign-In Box -->
     <div class="card p-4 shadow-sm border-0 mb-4" id="quickLoginBox" style="display:none;">
       <h5 class="fw-bold text-danger mb-2"><i class="bi bi-shield-lock-fill"></i> Candidate Verification</h5>
-      <p class="small text-muted mb-3">စာမေးပွဲ ဖြေဆိုရန် သင်၏ TMS Username နှင့် Password ဖြင့် အတည်ပြုဝင်ရောက်ပါ။</p>
+      <p class="small text-muted mb-3">Please sign in with your TMS Username and Password to access the assessment.</p>
       <form onsubmit="handleQuickLogin(event)" class="row g-3">
         <div class="col-md-5">
           <label class="form-label small fw-bold">TMS Username</label>
@@ -239,7 +239,6 @@
       <div id="pdfResultArea" class="shadow-sm">
         <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3">
           <div class="d-flex align-items-center">
-            <!-- crossorigin ဖြုတ်ထားပြီး Base64 အလိုအလျောက် ပြောင်းပေးမည့် Logo ပုံ -->
             <img id="pdfLogoImg" src="logo.png" alt="UT Logo" style="height: 52px; width: auto; margin-right: 15px; border-radius: 6px; object-fit: contain;">
             <div>
               <h5 class="fw-bold mb-0" style="color:#601a1a;">Universal Tractor Co., Ltd.</h5>
@@ -296,7 +295,7 @@
     let timerInterval = null;
     let remainingSeconds = 0;
 
-    // Portal မှဝင်ချိန်နှင့် PDF ထုတ်ချိန်တွင် Logo အမြဲပေါ်စေရန် Base64 သို့ ပြောင်းလဲပေးခြင်း
+    // Convert logo.png to Base64 so it always renders in Portal view and PDF export
     function preloadLogoBase64() {
       const pdfLogo = document.getElementById('pdfLogoImg');
       const img = new Image();
@@ -350,11 +349,11 @@
       const p = document.getElementById('qPass').value.trim();
       const snap = await db.collection('employees').where('username', '==', u).where('password', '==', p).get();
       if (snap.empty) {
-        return Swal.fire('Login Failed', 'Username သို့မဟုတ် Password မှားယွင်းနေပါသည်။', 'error');
+        return Swal.fire('Login Failed', 'Invalid username or password.', 'error');
       }
       const emp = snap.docs[0].data();
       if (emp.status === 'Inactive') {
-        return Swal.fire('Inactive', 'သင်၏ အကောင့်မှာ ရပ်ဆိုင်းထားပါသည်။', 'warning');
+        return Swal.fire('Inactive Account', 'Your account is currently marked as Inactive.', 'warning');
       }
       currentEmp = emp;
       localStorage.setItem('ut_emp_code', emp.code);
@@ -385,7 +384,7 @@
         const assignedDocs = exSnap.docs.map(d => d.data()).filter(ex => isExamAssignedToCandidate(ex));
 
         if (assignedDocs.length === 0) {
-          listEl.innerHTML = '<div class="text-muted py-3">လက်ရှိတွင် သင်ဖြေဆိုရန် သတ်မှတ်ထားသော စာမေးပွဲ မရှိသေးပါ။</div>';
+          listEl.innerHTML = '<div class="text-muted py-3">No active assessments are currently assigned to you.</div>';
           return;
         }
 
@@ -427,15 +426,15 @@
       }
 
       if (!currentExam || currentExam.status !== 'Active') {
-        Swal.fire('Unavailable', 'ဤစာမေးပွဲမှာ လက်ရှိတွင် ပိတ်ထားပါသည် သို့မဟုတ် မရှိပါ။', 'warning');
+        Swal.fire('Unavailable', 'This assessment is currently closed or does not exist.', 'warning');
         return;
       }
 
       const totalMarks = Number(currentExam.question_count || 20) * Number(currentExam.points_per_q || 5);
       document.getElementById('startConfirmBox').style.display = 'block';
       document.getElementById('startInstructionText').innerHTML = `
-        ဤစာမေးပွဲတွင် စုစုပေါင်း မေးခွန်း <b>(${currentExam.question_count}) ပုဒ်</b> ပါဝင်ပြီး တစ်ပုဒ်လျှင် <b>(${currentExam.points_per_q}) မှတ်</b> ဖြင့် စုစုပေါင်း <b>(${totalMarks}) မှတ်ဖိုး</b> ဖြစ်ပါသည်။<br>
-        ${currentExam.time_limit > 0 ? `ဖြေဆိုချိန် <b>(${currentExam.time_limit}) မိနစ်</b> သတ်မှတ်ထားပါသည်။` : 'အချိန်ကန့်သတ်ချက် မရှိပါ။'}
+        This assessment contains <b>${currentExam.question_count} questions</b> worth <b>${currentExam.points_per_q} marks</b> each (Total: <b>${totalMarks} marks</b>).<br>
+        ${currentExam.time_limit > 0 ? `Time Limit: <b>${currentExam.time_limit} minutes</b>.` : 'No time limit.'}
       `;
     }
 
@@ -468,7 +467,7 @@
           document.getElementById('timeRemainingText').innerText = `${m}:${s}`;
           if (remainingSeconds <= 0) {
             clearInterval(timerInterval);
-            Swal.fire('Time Up!', 'ဖြေဆိုချိန် ပြည့်သွားပါပြီ။ သင်၏အဖြေများကို အလိုအလျောက် ပေးပို့နေပါသည်။', 'info');
+            Swal.fire('Time Up!', 'Your time is up. Submitting your answers automatically...', 'info');
             submitAssessment(true);
           }
         }, 1000);
@@ -489,7 +488,7 @@
           <div class="q-title">${item.q}</div>
           <div class="option-list">
             ${item.opts.map((optText, oIdx) => `
-              <label class="option-item" id="lbl_q${qIdx}_o${oIdx}" onclick="selectOption(${qIdx},${oIdx})">
+              <label class="option-item" id="lbl_q${qIdx}_o${oIdx}" onclick="selectOption(${qIdx}, ${oIdx})">
                 <input type="radio" name="q_${qIdx}" value="${oIdx}">
                 <span class="opt-letter">${letters[oIdx] || (oIdx + 1)}</span>
                 <span class="flex-grow-1 text-dark">${optText}</span>
@@ -540,8 +539,8 @@
 
       if (!forceSubmit && unanswered.length > 0) {
         return Swal.fire({
-          title: 'မေးခွန်းအားလုံး မဖြေရသေးပါ!',
-          text: `မေးခွန်းအမှတ်စဉ် (${unanswered.join(', ')}) တို့ကို ဖြေဆိုရန် ကျန်ရှိနေပါသည်။`,
+          title: 'Unanswered Questions!',
+          text: `Please answer question(s): ${unanswered.join(', ')} before submitting.`,
           icon: 'warning',
           confirmButtonColor: '#601a1a'
         });
@@ -575,23 +574,10 @@
 
       await db.collection('exam_results').add(resultPayload);
 
-      await db.collection('records').add({
-        date_str: nowStr,
-        record_id: `EX-${currentExam.exam_id}-${currentEmp.code}`,
-        type: 'EXAM / TRAINING',
-        effect: '0',
-        emp_code: currentEmp.code,
-        dept: currentEmp.dept || '',
-        points: score,
-        line_remark: `${currentExam.title} - Score: ${score}/${totalMarks} (${passed ? 'PASSED' : 'FAILED'})`,
-        global_remark: `Online Assessment (${currentExam.exam_id})`,
-        created_at: Date.now()
-      });
-
       renderResultSheet(resultPayload);
       Swal.fire({
-        title: passed ? 'Congratulations! (အောင်မြင်ပါသည်)' : 'Assessment Submitted',
-        text: `သင်၏ ရမှတ်မှာ ${score} / ${totalMarks} ဖြစ်ပါသည်။ အောက်တွင် အဖြေလွှာအပြည့်အစုံကို PDF Download ရယူနိုင်ပါသည်။`,
+        title: passed ? 'Congratulations! You Passed!' : 'Assessment Submitted',
+        text: `Your final score is ${score} / ${totalMarks}. You can review and download your answer sheet as a PDF below.`,
         icon: passed ? 'success' : 'info',
         confirmButtonColor: '#601a1a'
       });
@@ -608,7 +594,7 @@
       document.getElementById('bannerExamMeta').innerText = `Assessment Completed on ${res.date_str}`;
 
       const badge = document.getElementById('resPassBadge');
-      badge.innerText = res.passed ? 'PASSED (အောင်မြင်သည်)' : 'FAILED (မအောင်မြင်ပါ)';
+      badge.innerText = res.passed ? 'PASSED' : 'FAILED';
       badge.className = `badge ${res.passed ? 'bg-success' : 'bg-danger'} fs-6 px-3 py-2`;
 
       document.getElementById('resDateText').innerText = `Date: ${res.date_str}`;
