@@ -1,14 +1,15 @@
 <!DOCTYPE html>
-<html lang="my">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>UT - Portal Sign In</title>
   <meta name="theme-color" content="#601a1a">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="UT TMS">
-  <link rel="apple-touch-icon" href="emp.png">
+  <link rel="apple-touch-icon" href="logo.png">
   <link rel="manifest" href="manifest.json" id="pwaManifest">
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -51,7 +52,6 @@
       height: 48px;
       object-fit: contain;
     }
-    /* VMS ပုံစံအတိုင်း အရွယ်အစားနှင့် အချိုးအစား တူညီစေရန် ချိန်ညှိထားခြင်း */
     .company-title {
       color: #601a1a;
       font-weight: 700;
@@ -114,7 +114,7 @@
       border-radius: 20px;
     }
 
-    /* VMS Style Floating Install Prompt Banner */
+    /* Floating Install Prompt Banner */
     .pwa-install-prompt {
       position: fixed;
       bottom: 20px;
@@ -221,18 +221,18 @@
     </form>
   </div>
 
-  <!-- VMS ပုံစံ အလိုအလျောက် တက်လာမည့် App Install Prompt Banner -->
+  <!-- Floating App Install Prompt Banner -->
   <div id="pwaInstallBanner" class="pwa-install-prompt">
-    <img src="https://yjoszqcnfhqucdjfnryn.supabase.co/storage/v1/object/public/wms_photos/UT%20Logo_modified.png" alt="UT App">
+    <img src="logo.png" alt="UT App">
     <div class="pwa-prompt-text">
       <div class="pwa-prompt-title">Install UT Portal App</div>
-      <div class="pwa-prompt-sub">ဖုန်းထဲတွင် App အဖြစ် သိမ်းဆည်းအသုံးပြုရန်</div>
+      <div class="pwa-prompt-sub">Add to Home Screen for quick access</div>
     </div>
     <button type="button" class="btn-pwa-install" id="btnTriggerInstall">Install</button>
     <button type="button" class="btn-pwa-close" id="btnCloseBanner" title="Close">&times;</button>
   </div>
 
-  <!-- ၁။ UI, မျက်လုံးခလုတ် နှင့် VMS Install Prompt အပိုင်း -->
+  <!-- 1. UI, Password Toggle & PWA Install Prompt Logic -->
   <script>
     document.getElementById('eyeToggleBtn').addEventListener('click', function() {
       var passInput = document.getElementById('loginPass');
@@ -300,8 +300,8 @@
         Swal.fire({
           title: 'Install UT Portal App',
           html: isIOS
-            ? '<div class="text-start small"><p class="mb-2">၁။ Safari အောက်ခြေရှိ <b>Share ခလုတ် (<i class="bi bi-box-arrow-up"></i>)</b> ကိုနှိပ်ပါ။</p><p class="mb-0">၂။ <b>"Add to Home Screen"</b> ကို ရွေးချယ်၍ <b>Add</b> နှိပ်ပါ။</p></div>'
-            : '<div class="text-start small"><p class="mb-2">၁။ Browser ညာဘက်အပေါ်ထောင့်ရှိ <b>အစက် (၃) စက် (⋮)</b> ကိုနှိပ်ပါ။</p><p class="mb-0">၂။ <b>"Install app"</b> သို့မဟုတ် <b>"Add to Home screen"</b> ကိုနှိပ်ပါ။</p></div>',
+            ? '<div class="text-start small"><p class="mb-2">1. Tap the <b>Share (<i class="bi bi-box-arrow-up"></i>)</b> button at the bottom of Safari.</p><p class="mb-0">2. Select <b>"Add to Home Screen"</b> and tap <b>Add</b>.</p></div>'
+            : '<div class="text-start small"><p class="mb-2">1. Tap the <b>Menu (⋮)</b> icon in the top-right corner of your browser.</p><p class="mb-0">2. Select <b>"Install app"</b> or <b>"Add to Home screen"</b>.</p></div>',
           icon: 'info',
           confirmButtonText: 'OK',
           confirmButtonColor: '#601a1a'
@@ -314,53 +314,37 @@
     });
   </script>
 
-  <!-- ၂။ Firebase ချိတ်ဆက်မှုနှင့် Login စစ်ဆေးသည့် အပိုင်း -->
+  <!-- 2. Firebase Connection & Authentication Logic -->
   <script>
-    // သင်၏ Firebase Config အချက်အလက်များကို ဤနေရာတွင် အစားထိုးပါ
     const firebaseConfig = {
-  apiKey: "AIzaSyCnQcsv8TekFkOyOPnb3UWZytPq7zBxLfI",
-  authDomain: "my-apps-a87a3.firebaseapp.com",
-  projectId: "my-apps-a87a3",
-  storageBucket: "my-apps-a87a3.firebasestorage.app",
-  messagingSenderId: "880270085984",
-  appId: "1:880270085984:web:d65a0c381172def3af1805"
-};
+      apiKey: "AIzaSyCnQcsv8TekFkOyOPnb3UWZytPq7zBxLfI",
+      authDomain: "my-apps-a87a3.firebaseapp.com",
+      projectId: "my-apps-a87a3",
+      storageBucket: "my-apps-a87a3.firebasestorage.app",
+      messagingSenderId: "880270085984",
+      appId: "1:880270085984:web:d65a0c381172def3af1805"
+    };
 
-    let db = null;
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
+    db.enablePersistence({ synchronizeTabs: true }).catch(function() {});
+
     let cachedEmps = [];
-    let isConfigValid = (firebaseConfig.apiKey !== "YOUR_API_KEY" && firebaseConfig.projectId !== "YOUR_PROJECT_ID");
 
-    if (isConfigValid) {
-      try {
-        firebase.initializeApp(firebaseConfig);
-        db = firebase.firestore();
-        db.enablePersistence({ synchronizeTabs: true }).catch(function() {});
-
-        db.collection('employees').onSnapshot(function(snap) {
-          cachedEmps = snap.docs.map(function(d) { return d.data(); });
-          var savedCode = localStorage.getItem('ut_emp_code');
-          if (savedCode) {
-            var found = cachedEmps.find(function(e) { return e.code === savedCode && e.status !== 'Inactive'; });
-            if (found) window.location.href = 'portal.html';
-          }
+    db.collection('employees').onSnapshot(function(snap) {
+      cachedEmps = snap.docs.map(function(d) { return d.data(); });
+      var savedCode = (localStorage.getItem('ut_emp_code') || '').trim();
+      if (savedCode) {
+        var found = cachedEmps.find(function(e) {
+          return String(e.code).trim().toUpperCase() === savedCode.toUpperCase() && e.status !== 'Inactive';
         });
-      } catch (e) {
-        console.error("Firebase Init Error:", e);
+        if (found) window.location.href = 'portal.html';
       }
-    }
+    });
 
     document.getElementById('loginForm').addEventListener('submit', async function(e) {
       e.preventDefault();
-
-      if (!isConfigValid || !db) {
-        Swal.fire({
-          title: 'Firebase မချိတ်ဆက်ရသေးပါ',
-          html: 'ကုဒ်ထဲရှိ <b>firebaseConfig</b> နေရာတွင် သင်၏ Firebase Project Key များကို အရင်အစားထိုးထည့်သွင်းပေးပါ။',
-          icon: 'warning',
-          confirmButtonColor: '#601a1a'
-        });
-        return;
-      }
 
       var u = document.getElementById('loginUser').value.trim();
       var p = document.getElementById('loginPass').value.trim();
@@ -373,7 +357,9 @@
 
         if (!emp) {
           var timeoutPromise = new Promise(function(_, reject) {
-            setTimeout(function() { reject(new Error("Firebase သို့ ချိတ်ဆက်ရာတွင် အချိန်ကြာနေပါသည်။ Internet သို့မဟုတ် Firestore Rules ကို စစ်ဆေးပါ။")); }, 8000);
+            setTimeout(function() {
+              reject(new Error("Connection timed out. Please check your internet connection."));
+            }, 8000);
           });
 
           var queryPromise = db.collection('employees').get();
@@ -381,8 +367,8 @@
 
           if (snap.empty) {
             Swal.fire({
-              title: 'ဝန်ထမ်းစာရင်း မရှိသေးပါ',
-              text: 'index.html သို့ အရင်သွားပြီး ဝန်ထမ်းနှင့် Username/Password ကို အရင်စာရင်းသွင်းပေးပါ။',
+              title: 'No Employee Records',
+              text: 'No employee profiles found in the database. Please register employees in index.html first.',
               icon: 'info',
               confirmButtonColor: '#601a1a'
             });
@@ -396,12 +382,22 @@
         }
 
         if (!emp) {
-          Swal.fire({ title: 'Login Failed', text: 'Username သို့မဟုတ် Password မှားယွင်းနေပါသည်။', icon: 'error', confirmButtonColor: '#601a1a' });
+          Swal.fire({
+            title: 'Login Failed',
+            text: 'Invalid username or password.',
+            icon: 'error',
+            confirmButtonColor: '#601a1a'
+          });
           return;
         }
 
         if (emp.status === 'Inactive') {
-          Swal.fire({ title: 'Access Denied', text: 'သင်၏ အကောင့်မှာ ရပ်ဆိုင်းထားပါသည် (Inactive)။', icon: 'warning', confirmButtonColor: '#601a1a' });
+          Swal.fire({
+            title: 'Access Denied',
+            text: 'Your account is currently marked as Inactive.',
+            icon: 'warning',
+            confirmButtonColor: '#601a1a'
+          });
           return;
         }
 
@@ -409,7 +405,12 @@
         window.location.href = 'portal.html';
 
       } catch (err) {
-        Swal.fire({ title: 'Connection Error', text: err.message, icon: 'error', confirmButtonColor: '#601a1a' });
+        Swal.fire({
+          title: 'Connection Error',
+          text: err.message,
+          icon: 'error',
+          confirmButtonColor: '#601a1a'
+        });
       } finally {
         btn.disabled = false;
         btn.innerText = "Log In";
