@@ -273,6 +273,23 @@
   </div>
 
   <script>
+    // Auto-clean stuck Service Workers & old IndexedDB cache
+    (function cleanStuckServiceWorkers() {
+      const cleanupKey = 'ut_sw_cleaned_v4';
+      if (!localStorage.getItem(cleanupKey)) {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister())).catch(() => {});
+        }
+        if ('caches' in window) {
+          caches.keys().then(keys => keys.forEach(k => caches.delete(k))).catch(() => {});
+        }
+        if ('indexedDB' in window && indexedDB.databases) {
+          indexedDB.databases().then(dbs => dbs.forEach(d => indexedDB.deleteDatabase(d.name))).catch(() => {});
+        }
+        localStorage.setItem(cleanupKey, 'true');
+      }
+    })();
+
     const firebaseConfig = {
       apiKey: "AIzaSyCnQcsv8TekFkOyOPnb3UWZytPq7zBxLfI",
       authDomain: "my-apps-a87a3.firebaseapp.com",
@@ -283,7 +300,11 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-    db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
+    db.settings({
+      experimentalForceLongPolling: true,
+      useFetchStreams: false,
+      merge: true
+    });
 
     const urlParams = new URLSearchParams(window.location.search);
     let targetExamId = (urlParams.get('exam_id') || '').trim();
