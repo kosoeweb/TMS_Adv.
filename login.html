@@ -7,10 +7,7 @@
   <meta name="theme-color" content="#601a1a">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="UT TMS">
   <link rel="apple-touch-icon" href="logo.png">
-  <link rel="manifest" href="manifest.json" id="pwaManifest">
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
@@ -48,10 +45,7 @@
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
       margin-bottom: 16px;
     }
-    .logo-box img {
-      height: 48px;
-      object-fit: contain;
-    }
+    .logo-box img { height: 48px; object-fit: contain; }
     .company-title {
       color: #601a1a;
       font-weight: 700;
@@ -59,27 +53,10 @@
       white-space: nowrap;
       margin-bottom: 6px;
     }
-    .portal-subtitle {
-      color: #555555;
-      font-size: 0.88rem;
-      margin-bottom: 26px;
-    }
-    .form-label {
-      font-weight: 600;
-      font-size: 0.88rem;
-      color: #212529;
-      margin-bottom: 6px;
-    }
-    .form-control {
-      padding: 10px 14px;
-      border-radius: 7px;
-      border: 1px solid #ced4da;
-      font-size: 0.92rem;
-    }
-    .form-control:focus {
-      border-color: #601a1a;
-      box-shadow: 0 0 0 0.2rem rgba(96, 26, 26, 0.15);
-    }
+    .portal-subtitle { color: #555555; font-size: 0.88rem; margin-bottom: 26px; }
+    .form-label { font-weight: 600; font-size: 0.88rem; color: #212529; margin-bottom: 6px; }
+    .form-control { padding: 10px 14px; border-radius: 7px; border: 1px solid #ced4da; font-size: 0.92rem; }
+    .form-control:focus { border-color: #601a1a; box-shadow: 0 0 0 0.2rem rgba(96, 26, 26, 0.15); }
     .eye-btn {
       border: 1px solid #ced4da;
       border-left: none;
@@ -90,9 +67,6 @@
       border-bottom-right-radius: 7px;
       cursor: pointer;
     }
-    .eye-btn:hover {
-      background: #f8f9fa;
-    }
     .btn-theme {
       background-color: #601a1a;
       color: #ffffff;
@@ -102,23 +76,15 @@
       border: none;
       width: 100%;
       font-size: 0.95rem;
-      transition: background 0.2s;
     }
-    .btn-theme:hover {
-      background-color: #4a1313;
-      color: #ffffff;
-    }
-    .status-pill {
-      font-size: 0.78rem;
-      padding: 5px 12px;
-      border-radius: 20px;
-    }
+    .btn-theme:hover { background-color: #4a1313; color: #ffffff; }
+    .status-pill { font-size: 0.78rem; padding: 5px 12px; border-radius: 20px; }
   </style>
 </head>
 <body>
 
   <div class="mb-3">
-    <span id="connBadge" class="badge bg-secondary status-pill">Checking...</span>
+    <span id="connBadge" class="badge bg-secondary status-pill">Connecting...</span>
   </div>
 
   <div class="login-card">
@@ -140,7 +106,7 @@
         <label class="form-label">Password</label>
         <div class="input-group">
           <input type="password" id="loginPass" class="form-control" placeholder="Enter password" required autocomplete="current-password">
-          <button type="button" class="btn eye-btn" id="eyeToggleBtn" onclick="togglePasswordVisibility()">
+          <button type="button" class="btn eye-btn" onclick="togglePasswordVisibility()">
             <i class="bi bi-eye" id="eyeIcon"></i>
           </button>
         </div>
@@ -151,24 +117,20 @@
   </div>
 
   <script>
-    // 1. Clean up any old Service Workers & Caches so portal.html is never blocked
-    async function clearOldServiceWorkers() {
-      try {
-        if ('serviceWorker' in navigator) {
-          const regs = await navigator.serviceWorker.getRegistrations();
-          for (const r of regs) {
-            await r.unregister();
-          }
-        }
-        if ('caches' in window) {
-          const keys = await caches.keys();
-          for (const k of keys) {
-            await caches.delete(k);
-          }
-        }
-      } catch (e) {}
-    }
-    clearOldServiceWorkers();
+    const firebaseConfig = {
+      apiKey: "AIzaSyCnQcsv8TekFkOyOPnb3UWZytPq7zBxLfI",
+      authDomain: "my-apps-a87a3.firebaseapp.com",
+      projectId: "my-apps-a87a3",
+      storageBucket: "my-apps-a87a3.firebasestorage.app",
+      messagingSenderId: "880270085984",
+      appId: "1:880270085984:web:d65a0c381172def3af1805"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    db.settings({ experimentalAutoDetectLongPolling: true });
+
+    let cachedEmps = [];
 
     function togglePasswordVisibility() {
       var passInput = document.getElementById('loginPass');
@@ -182,47 +144,21 @@
       }
     }
 
-    function updateOnlineStatus() {
-      var badge = document.getElementById('connBadge');
-      if (navigator.onLine) {
-        badge.className = 'badge bg-success status-pill';
-        badge.innerHTML = '<i class="bi bi-wifi"></i> Online';
-      } else {
-        badge.className = 'badge bg-warning text-dark status-pill';
-        badge.innerHTML = '<i class="bi bi-wifi-off"></i> Offline Mode';
-      }
-    }
-    window.addEventListener('online', updateOnlineStatus);
-    window.addEventListener('offline', updateOnlineStatus);
-    updateOnlineStatus();
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyCnQcsv8TekFkOyOPnb3UWZytPq7zBxLfI",
-      authDomain: "my-apps-a87a3.firebaseapp.com",
-      projectId: "my-apps-a87a3",
-      storageBucket: "my-apps-a87a3.firebasestorage.app",
-      messagingSenderId: "880270085984",
-      appId: "1:880270085984:web:d65a0c381172def3af1805"
-    };
-
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    try {
-      db.settings({
-        experimentalForceLongPolling: true,
-        merge: true
-      });
-    } catch (e) {}
-
-    let cachedEmps = [];
-
     db.collection('employees').onSnapshot(function(snap) {
+      var badge = document.getElementById('connBadge');
+      badge.className = 'badge bg-success status-pill';
+      badge.innerHTML = '<i class="bi bi-wifi"></i> Connected (' + snap.docs.length + ' Users)';
+
       cachedEmps = snap.docs.map(function(d) {
         var data = d.data();
         if (!data.code) data.code = d.id;
         return data;
       });
-    }, function() {});
+    }, function() {
+      var badge = document.getElementById('connBadge');
+      badge.className = 'badge bg-danger status-pill';
+      badge.innerHTML = '<i class="bi bi-wifi-off"></i> Connection Error';
+    });
 
     async function handlePortalLogin(e) {
       e.preventDefault();
@@ -234,32 +170,12 @@
       btn.innerText = "Signing In...";
 
       try {
-        await clearOldServiceWorkers();
-
         var emp = cachedEmps.find(function(item) {
           return String(item.username || '').trim() === u && String(item.password || '').trim() === p;
         });
 
         if (!emp) {
-          var timeoutPromise = new Promise(function(_, reject) {
-            setTimeout(function() {
-              reject(new Error("Connection timed out. Please check your internet connection."));
-            }, 12000);
-          });
-
-          var queryPromise = db.collection('employees').get();
-          var snap = await Promise.race([queryPromise, timeoutPromise]);
-
-          if (snap.empty) {
-            Swal.fire({
-              title: 'No Employee Records',
-              text: 'No employee profiles found in the database. Please register employees in index.html first.',
-              icon: 'info',
-              confirmButtonColor: '#601a1a'
-            });
-            return;
-          }
-
+          var snap = await db.collection('employees').get();
           snap.docs.forEach(function(doc) {
             var d = doc.data();
             if (!d.code) d.code = doc.id;
@@ -289,11 +205,9 @@
           return;
         }
 
-        var cleanCode = String(emp.code || '').trim();
-        localStorage.setItem('ut_emp_code', cleanCode);
+        localStorage.setItem('ut_emp_code', String(emp.code).trim());
         localStorage.setItem('ut_emp_profile', JSON.stringify(emp));
-
-        window.location.replace('portal.html');
+        window.location.href = 'portal.html';
 
       } catch (err) {
         Swal.fire({
