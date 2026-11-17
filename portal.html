@@ -172,16 +172,11 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-    try {
-      db.settings({
-        experimentalForceLongPolling: true,
-        merge: true
-      });
-    } catch (e) {}
+    db.settings({ experimentalAutoDetectLongPolling: true });
 
     const loggedEmpCode = (localStorage.getItem('ut_emp_code') || '').trim();
     if (!loggedEmpCode) {
-      window.location.replace('login.html');
+      window.location.href = 'login.html';
     }
 
     let currentEmp = null;
@@ -227,21 +222,19 @@
       }
     }
 
-    function updateStatusBadge(fromCache = !navigator.onLine, hasPending = false) {
+    function updateStatusBadge(isLive = true, isSyncing = false) {
       const el = document.getElementById('connStatus');
-      if (hasPending) {
+      if (isSyncing) {
         el.className = 'badge bg-warning text-dark';
         el.innerHTML = '<i class="bi bi-cloud-arrow-up"></i> Syncing...';
-      } else if (!navigator.onLine || fromCache) {
-        el.className = 'badge bg-secondary';
-        el.innerHTML = '<i class="bi bi-wifi-off"></i> Offline';
-      } else {
+      } else if (isLive && navigator.onLine) {
         el.className = 'badge bg-success';
         el.innerHTML = '<i class="bi bi-wifi"></i> Live';
+      } else {
+        el.className = 'badge bg-secondary';
+        el.innerHTML = '<i class="bi bi-wifi-off"></i> Offline';
       }
     }
-    window.addEventListener('online', () => updateStatusBadge(false));
-    window.addEventListener('offline', () => updateStatusBadge(true));
 
     function getTodayStr() {
       const d = new Date();
@@ -309,13 +302,7 @@
     }
 
     function getTodayAttendanceStatus() {
-      let status = {
-        in: false,
-        out: false,
-        inStatus: '',
-        outStatus: ''
-      };
-
+      let status = { in: false, out: false, inStatus: '', outStatus: '' };
       myAttList.filter(a => isRecordFromToday(a)).forEach(a => {
         if (a.type === 'Check-In') {
           status.in = true;
@@ -326,7 +313,6 @@
           status.outStatus = a.time_status || status.outStatus;
         }
       });
-
       return status;
     }
 
@@ -361,7 +347,6 @@
           };
         }
       }
-
       return { label: "Recorded", css: "text-secondary fw-bold", timeString };
     }
 
@@ -382,15 +367,10 @@
     }
 
     window.onload = () => {
-      // Immediately render cached profile if available
-      if (currentEmp) {
-        renderProfileCard(currentEmp);
-      }
+      if (currentEmp) renderProfileCard(currentEmp);
 
-      // 1. Employee Profile Listener (Never auto-redirects to login.html on temporary sync delay)
-      db.collection('employees').onSnapshot({ includeMetadataChanges: true }, snap => {
-        updateStatusBadge(snap.metadata.fromCache, snap.metadata.hasPendingWrites);
-
+      db.collection('employees').onSnapshot(snap => {
+        updateStatusBadge(true, false);
         const found = snap.docs.map(d => {
           const data = d.data();
           if (!data.code) data.code = d.id;
@@ -405,11 +385,8 @@
           evaluatePendingExams();
           applyAttendanceUI();
         }
-      }, () => {
-        updateStatusBadge(true, false);
-      });
+      }, () => updateStatusBadge(false, false));
 
-      // 2. Settings & Dynamic Attendance Rules Listener
       db.collection('tms_settings').onSnapshot(snap => {
         sysSettings = {};
         leaveTypesMap = {};
@@ -425,21 +402,17 @@
         evaluateAttendanceState(true);
       });
 
-      // 3. Attendance, Leave & Records Listeners
-      db.collection('attendance').onSnapshot({ includeMetadataChanges: true }, snap => {
-        updateStatusBadge(snap.metadata.fromCache, snap.metadata.hasPendingWrites);
+      db.collection('attendance').onSnapshot(snap => {
+        updateStatusBadge(true, false);
         myAttList = snap.docs
           .map(d => d.data())
           .filter(a => String(a.emp_code || '').trim().toUpperCase() === loggedEmpCode.toUpperCase());
         attLoaded = true;
         applyAttendanceUI();
         renderMyLedger();
-      }, () => {
-        updateStatusBadge(true, false);
-      });
+      }, () => updateStatusBadge(false, false));
 
-      db.collection('leave').onSnapshot({ includeMetadataChanges: true }, snap => {
-        updateStatusBadge(snap.metadata.fromCache, snap.metadata.hasPendingWrites);
+      db.collection('leave').onSnapshot(snap => {
         myLeaveList = snap.docs
           .map(d => d.data())
           .filter(l => String(l.emp_code || '').trim().toUpperCase() === loggedEmpCode.toUpperCase());
@@ -454,7 +427,6 @@
         renderMyLedger();
       });
 
-      // 4. Online Exams & Exam Results Listeners
       db.collection('tms_exams').onSnapshot(snap => {
         allExams = snap.docs.map(d => d.data());
         examsLoaded = true;
@@ -471,7 +443,6 @@
       });
     };
 
-    // ==================== ATTENDANCE UI & GPS STATE LOGIC ====================
     function evaluateAttendanceState(requestNewGps = false) {
       applyAttendanceUI();
 
@@ -553,7 +524,6 @@
 
     async function submitAtt(type) {
       if (!isGeoOK) return Swal.fire("Error", "You must be inside the office zone.", "error");
-      if (!navigator.onLine) return Swal.fire("Offline", "No internet connection. Please connect to the internet and try again.", "error");
 
       const currentStatus = getTodayAttendanceStatus();
       if (type === 'Check-In' && currentStatus.in) {
@@ -572,8 +542,8 @@
       const btn = document.getElementById(type === 'Check-In' ? 'btnIn' : 'btnOut');
       const origHtml = btn.innerHTML;
       btn.disabled = true;
-      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving to Server...';
-      updateStatusBadge(false, true);
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
+      updateStatusBadge(true, true);
 
       let payload = {
         date_str: todayStr,
@@ -588,22 +558,18 @@
       };
 
       try {
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Server connection timed out. Please check your internet connection and try again.")), 12000)
-        );
-        await Promise.race([db.collection('attendance').add(payload), timeoutPromise]);
-        updateStatusBadge(false, false);
+        await db.collection('attendance').add(payload);
+        updateStatusBadge(true, false);
         applyAttendanceUI();
-        Swal.fire("Recorded", `${type} (${recordedStatusLabel}) has been saved to the server.`, "success");
+        Swal.fire("Recorded", `${type} (${recordedStatusLabel}) saved successfully.`, "success");
       } catch (err) {
         btn.disabled = false;
         btn.innerHTML = origHtml;
-        updateStatusBadge(true, false);
-        Swal.fire("Sync Failed", err.message, "error");
+        updateStatusBadge(false, false);
+        Swal.fire("Error", err.message, "error");
       }
     }
 
-    // ==================== PENDING EXAM POP-UP & TAB LOGIC ====================
     function isExamAssignedToMe(ex) {
       if (String(ex.status || 'Active').toLowerCase() !== 'active') return false;
       if (Array.isArray(ex.target_emps) && ex.target_emps.length > 0) {
@@ -723,7 +689,7 @@
     function logoutEmp() {
       localStorage.removeItem('ut_emp_code');
       localStorage.removeItem('ut_emp_profile');
-      window.location.replace('login.html');
+      window.location.href = 'login.html';
     }
 
     function checkLeaveType() {
@@ -755,13 +721,12 @@
       let reason = document.getElementById('lReason').value;
 
       if (!type || !start || !days) return Swal.fire("Incomplete", "Please fill in all required fields.", "warning");
-      if (!navigator.onLine) return Swal.fire("Offline", "No internet connection. Please connect to the internet and try again.", "error");
 
       const btn = document.getElementById('btnLeave');
       const origHtml = btn.innerHTML;
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Submitting...';
-      updateStatusBadge(false, true);
+      updateStatusBadge(true, true);
 
       let payload = {
         apply_date: getTodayStr(),
@@ -777,16 +742,13 @@
       };
 
       try {
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Server connection timed out. Please check your internet connection.")), 12000)
-        );
-        await Promise.race([db.collection('leave').add(payload), timeoutPromise]);
-        updateStatusBadge(false, false);
-        Swal.fire("Submitted", "Leave application submitted to server successfully.", "success");
+        await db.collection('leave').add(payload);
+        updateStatusBadge(true, false);
+        Swal.fire("Submitted", "Leave application submitted successfully.", "success");
         ['lStart', 'lEnd', 'lDays', 'lReason'].forEach(id => document.getElementById(id).value = '');
       } catch (err) {
-        updateStatusBadge(true, false);
-        Swal.fire("Submission Failed", err.message, "error");
+        updateStatusBadge(false, false);
+        Swal.fire("Error", err.message, "error");
       } finally {
         btn.disabled = false;
         btn.innerHTML = origHtml;
@@ -797,7 +759,6 @@
       let combined = [];
       let totalScore = 0;
 
-      // 1. Attendance
       myAttList.forEach(a => {
         let dObj = parseFlexibleDate(a.date_str, a.created_at);
         let sortTime = a.created_at || (dObj ? dObj.getTime() : 0);
@@ -812,7 +773,6 @@
         });
       });
 
-      // 2. Leave
       myLeaveList.forEach(l => {
         let dObj = parseFlexibleDate(l.start_date || l.apply_date, l.created_at);
         let sortTime = l.created_at || (dObj ? dObj.getTime() : 0);
@@ -827,7 +787,6 @@
         });
       });
 
-      // 3. HR Transactions
       myRecList.forEach(r => {
         if (r.type === 'EXAM / TRAINING') return;
         let dObj = parseFlexibleDate(r.date_str, r.created_at);
@@ -848,7 +807,6 @@
         });
       });
 
-      // 4. Online Exam Submissions
       myExamResults.forEach(x => {
         let dObj = parseFlexibleDate(x.date_str, x.created_at);
         let sortTime = x.created_at || (dObj ? dObj.getTime() : 0);
