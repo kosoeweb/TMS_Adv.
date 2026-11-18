@@ -46,11 +46,15 @@
   <div class="container-fluid px-4 pb-5">
     <div class="card p-4">
       <h4 class="mb-4 text-primary fw-bold">Employee Directory & System Setup</h4>
-      <ul class="nav nav-tabs mb-4">
+      <ul class="nav nav-tabs mb-4" id="mainDirTabs">
         <li class="nav-item"><a class="nav-link active fw-bold" data-bs-toggle="tab" href="#createEmp">Register Employee</a></li>
         <li class="nav-item"><a class="nav-link fw-bold" data-bs-toggle="tab" href="#editEmp">Edit Profile</a></li>
         <li class="nav-item"><a class="nav-link fw-bold" data-bs-toggle="tab" href="#settings">Job & System Settings</a></li>
-        <li class="nav-item"><a class="nav-link fw-bold text-danger" data-bs-toggle="tab" href="#examSetup">Online Exam Setup</a></li>
+        <li class="nav-item">
+          <a class="nav-link fw-bold text-danger" href="#examSetup" id="examSetupTabLink" onclick="openExamSetupWithPin(event)">
+            <i class="bi bi-lock-fill me-1" id="examTabLockIcon"></i>Online Exam Setup
+          </a>
+        </li>
       </ul>
 
       <div class="tab-content">
@@ -422,8 +426,22 @@
 
         </div>
 
-        <!-- 4. ONLINE EXAM SETUP -->
+        <!-- 4. ONLINE EXAM SETUP (PIN PROTECTED) -->
         <div class="tab-pane fade" id="examSetup">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 bg-light p-2 rounded border">
+            <div class="small text-muted fw-bold">
+              <i class="bi bi-shield-lock-fill text-danger"></i> Protected Exam Administration Area
+            </div>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-dark fw-bold" onclick="changeExamPinPrompt()">
+                <i class="bi bi-key-fill text-warning"></i> Change PIN
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-danger fw-bold" onclick="lockExamSetupTabNow()">
+                <i class="bi bi-lock-fill"></i> Lock Tab
+              </button>
+            </div>
+          </div>
+
           <div class="row g-4">
             <div class="col-lg-7">
               <div class="card border p-3 bg-light">
@@ -564,19 +582,18 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     const firebaseConfig = {
-  apiKey: "AIzaSyCiI78VStxxbhAO1WixiKra4r8ggIl6cxI",
-  authDomain: "tms-adv.firebaseapp.com",
-  projectId: "tms-adv",
-  storageBucket: "tms-adv.firebasestorage.app",
-  messagingSenderId: "1032960934679",
-  appId: "1:1032960934679:web:60a32de5f3d1e33532ad52"
-};
+      apiKey: "AIzaSyCnQcsv8TekFkOyOPnb3UWZytPq7zBxLfI",
+      authDomain: "my-apps-a87a3.firebaseapp.com",
+      projectId: "my-apps-a87a3",
+      storageBucket: "my-apps-a87a3.firebasestorage.app",
+      messagingSenderId: "880270085984",
+      appId: "1:880270085984:web:d65a0c381172def3af1805"
+    };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
 
     // ==================== SHARED ADMIN QUOTA-SAVER ENGINE ====================
-    // Converts .onSnapshot() & .where() into 15-min Shared Session Cache + 0-Read Local Updates
     (function installAdminQuotaSaver(dbInstance) {
       const CACHE_TTL = 15 * 60 * 1000;
       window._utMemCache = window._utMemCache || {};
@@ -780,6 +797,111 @@
     let appData = { emps: [], depts: [], deptDocs: [], settingsDocs: [], settings: { departments: {}, leaveTypes: [] }, exams: [] };
     let currentQuestionBank = [];
 
+    // ==================== PIN PROTECTION FOR ONLINE EXAM SETUP TAB ====================
+    let examSetupUnlocked = false;
+    let configuredExamPin = "1234"; // Default PIN if not changed in database
+
+    // Re-lock Exam Setup automatically whenever the user switches to another tab
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('#mainDirTabs a[data-bs-toggle="tab"]').forEach(tabEl => {
+        tabEl.addEventListener('shown.bs.tab', () => {
+          examSetupUnlocked = false;
+          const icon = document.getElementById('examTabLockIcon');
+          if (icon) icon.className = 'bi bi-lock-fill me-1';
+        });
+      });
+    });
+
+    async function openExamSetupWithPin(e) {
+      e.preventDefault();
+      const tabLink = document.getElementById('examSetupTabLink');
+
+      if (examSetupUnlocked) {
+        bootstrap.Tab.getOrCreateInstance(tabLink).show();
+        return;
+      }
+
+      const { value: enteredPin } = await Swal.fire({
+        title: 'Enter Exam Setup PIN',
+        text: 'Please enter the PIN code to access Online Exam Setup.',
+        input: 'password',
+        inputPlaceholder: 'Enter PIN code...',
+        inputAttributes: {
+          maxlength: 20,
+          autocapitalize: 'off',
+          autocorrect: 'off'
+        },
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#601a1a',
+        confirmButtonText: '<i class="bi bi-unlock-fill"></i> Unlock',
+        cancelButtonText: 'Cancel'
+      });
+
+      if (enteredPin === undefined) return;
+
+      if (String(enteredPin).trim() === String(configuredExamPin).trim()) {
+        examSetupUnlocked = true;
+        const icon = document.getElementById('examTabLockIcon');
+        if (icon) icon.className = 'bi bi-unlock-fill me-1';
+        bootstrap.Tab.getOrCreateInstance(tabLink).show();
+      } else {
+        Swal.fire({
+          title: 'Access Denied',
+          text: 'Incorrect PIN code!',
+          icon: 'error',
+          confirmButtonColor: '#601a1a'
+        });
+      }
+    }
+
+    function lockExamSetupTabNow() {
+      examSetupUnlocked = false;
+      const icon = document.getElementById('examTabLockIcon');
+      if (icon) icon.className = 'bi bi-lock-fill me-1';
+      const firstTab = document.querySelector('#mainDirTabs a[href="#createEmp"]');
+      if (firstTab) bootstrap.Tab.getOrCreateInstance(firstTab).show();
+    }
+
+    async function changeExamPinPrompt() {
+      const { value: formValues } = await Swal.fire({
+        title: 'Change Exam Setup PIN',
+        html: `
+          <div class="text-start">
+            <label class="form-label small fw-bold">Current PIN</label>
+            <input type="password" id="swalCurPin" class="form-control mb-3" placeholder="Enter current PIN">
+            <label class="form-label small fw-bold">New PIN</label>
+            <input type="password" id="swalNewPin" class="form-control" placeholder="Enter new PIN">
+          </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonColor: '#601a1a',
+        confirmButtonText: 'Save New PIN',
+        preConfirm: () => {
+          const curP = document.getElementById('swalCurPin').value.trim();
+          const newP = document.getElementById('swalNewPin').value.trim();
+          if (curP !== String(configuredExamPin).trim()) {
+            Swal.showValidationMessage('Current PIN is incorrect!');
+            return false;
+          }
+          if (!newP || newP.length < 4) {
+            Swal.showValidationMessage('New PIN must be at least 4 characters.');
+            return false;
+          }
+          return newP;
+        }
+      });
+
+      if (formValues) {
+        const existing = await db.collection('tms_settings').where('category', '==', 'Exam Setup PIN').get();
+        await Promise.all(existing.docs.map(d => d.ref.delete()));
+        await db.collection('tms_settings').add({ category: 'Exam Setup PIN', subcategory: formValues });
+        configuredExamPin = formValues;
+        Swal.fire('PIN Updated!', 'Your Online Exam Setup PIN has been updated.', 'success');
+      }
+    }
+
     function togglePassField(inputId, btn) {
       const inp = document.getElementById(inputId);
       const icon = btn.querySelector('i');
@@ -821,9 +943,11 @@
         appData.settingsDocs = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
         appData.settings.departments = {};
         appData.settings.leaveTypes = [];
-        const reserved = ['Office Lat', 'Office Lng', 'Geo Radius', 'Work Start', 'Work End', 'Leave Type', 'System Type', 'Attendance Rule'];
+        const reserved = ['Office Lat', 'Office Lng', 'Geo Radius', 'Work Start', 'Work End', 'Leave Type', 'System Type', 'Attendance Rule', 'Exam Setup PIN'];
         appData.settingsDocs.forEach(r => {
-          if (r.category === 'Leave Type') {
+          if (r.category === 'Exam Setup PIN' && r.subcategory) {
+            configuredExamPin = String(r.subcategory).trim();
+          } else if (r.category === 'Leave Type') {
             appData.settings.leaveTypes.push({ name: r.subcategory, allowed_days: Number(r.allowed_days || 0) });
           } else if (!reserved.includes(r.category)) {
             if (!appData.settings.departments[r.category]) appData.settings.departments[r.category] = [];
@@ -983,7 +1107,7 @@
     }
 
     function renderAllSettingsTables() {
-      const reserved = ['Office Lat', 'Office Lng', 'Geo Radius', 'Work Start', 'Work End', 'Leave Type', 'System Type', 'Attendance Rule'];
+      const reserved = ['Office Lat', 'Office Lng', 'Geo Radius', 'Work Start', 'Work End', 'Leave Type', 'System Type', 'Attendance Rule', 'Exam Setup PIN'];
       const officeKeys = ['Office Lat', 'Office Lng', 'Geo Radius', 'Work Start', 'Work End'];
 
       // 1. Job Positions
