@@ -32,7 +32,9 @@
         <div style="line-height: 1.1;">Universal Tractor Co., Ltd.<br><small style="font-size: 0.75rem;">Employee Portal</small></div>
       </span>
       <div class="d-flex align-items-center gap-2">
-        <span id="connStatus" class="badge bg-success"><i class="bi bi-wifi"></i> Live</span>
+        <span id="connStatus" class="badge bg-success" onclick="loadPortalData(true)" style="cursor:pointer;" title="Tap to sync latest data">
+          <i class="bi bi-wifi"></i> Live
+        </span>
         <button class="btn btn-outline-light btn-sm" onclick="logoutEmp()"><i class="bi bi-box-arrow-right"></i> Logout</button>
       </div>
     </div>
@@ -124,7 +126,12 @@
         <div class="card p-3 shadow-sm border-0 border-top border-info border-4">
           <div class="d-flex justify-content-between align-items-center mb-2">
             <h6 class="fw-bold mb-0 text-secondary">Individual Record History</h6>
-            <span class="badge bg-success" id="portalScoreBadge">Total Score: 0</span>
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge bg-success" id="portalScoreBadge">Total Score: 0</span>
+              <button class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="loadPortalData(true)" title="Refresh History">
+                <i class="bi bi-arrow-clockwise"></i>
+              </button>
+            </div>
           </div>
           <div class="row g-2 mb-3 bg-light p-2 rounded">
             <div class="col-4">
@@ -179,7 +186,6 @@
     const db = firebase.firestore();
     db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
 
-    // Read employee code from localStorage OR 1-year Cookie backup
     function getPersistentEmpCode() {
       var code = '';
       try { code = (localStorage.getItem('ut_emp_code') || '').trim(); } catch (e) {}
@@ -214,6 +220,8 @@
     let attLoaded = false, examsLoaded = false, resultsLoaded = false, lastPopupKey = '';
     let cLat = 0, cLng = 0, cDist = 0, hasGeoFix = false, isGeoOK = false;
 
+    const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes smart cache for static settings
+
     const defaultAttendanceRules = [
       { action_type: 'Check-In', min_mins: -999, max_mins: 5, subcategory: 'On Time', color_class: 'text-success', show_mins: false },
       { action_type: 'Check-In', min_mins: 6, max_mins: 15, subcategory: 'Small Late', color_class: 'text-warning', show_mins: true },
@@ -223,6 +231,23 @@
       { action_type: 'Check-Out', min_mins: 0, max_mins: 59, subcategory: 'On Time', color_class: 'text-success', show_mins: false },
       { action_type: 'Check-Out', min_mins: 60, max_mins: 999, subcategory: 'Overtime', color_class: 'text-primary', show_mins: true }
     ];
+
+    // ==================== SMART CACHE & TARGETED QUERY HELPERS ====================
+    function getSmartCache(key, ignoreTtl = false) {
+      try {
+        var raw = localStorage.getItem(key);
+        if (!raw) return null;
+        var parsed = JSON.parse(raw);
+        if (!ignoreTtl && Date.now() - (parsed.ts || 0) > CACHE_TTL_MS) return null;
+        return parsed.data;
+      } catch (e) { return null; }
+    }
+
+    function setSmartCache(key, data) {
+      try {
+        localStorage.setItem(key, JSON.stringify({ ts: Date.now(), data: data }));
+      } catch (e) {}
+    }
 
     function parseRestVal(v) {
       if (!v || typeof v !== 'object') return v;
@@ -239,6 +264,13 @@
         return obj;
       }
       return '';
+    }
+
+    function parseRestDoc(doc) {
+      var obj = { docId: doc.name ? doc.name.split('/').pop() : '' };
+      var fields = doc.fields || {};
+      Object.keys(fields).forEach(function(k) { obj[k] = parseRestVal(fields[k]); });
+      return obj;
     }
 
     function toRestVal(v) {
@@ -258,11 +290,96 @@
       return fields;
     }
 
+    // Targeted Query by Field (Uses SDK .where() first, falls back to REST :runQuery so it NEVER scans whole collection)
+    async function queryByFieldSmart(colName, fieldName, fieldVal) {
+      try {
+        var sdkPromise = db.collection(colName).where(fieldName, '==', fieldVal).get();
+        var timeoutPromise = new Promise(function(_, reject) {
+          setTimeout(function() { reject(new Error("TIMEOUT")); }, 4500);
+        });
+        var snap = await Promise.race([sdkPromise, timeoutPromise]);
+        return snap.docs.map(function(d) { return { docId: d.id, ...d.data() }; });
+      } catch (err) {
+        var url = "https://firestore.googleapis.com/v1/projects/my-apps-a87a3/databases/(default)/documents:runQuery?key=" + firebaseConfig.apiKey;
+        var body = {
+          structuredQuery: {
+            from: [{ collectionId: colName }],
+            where: {
+              fieldFilter: {
+                field: { fieldPath: fieldName },
+                op: "EQUAL",
+                value: { stringValue: String(fieldVal) }
+              }
+            }
+          }
+        };
+        var res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        var rows = await res.json();
+        return (rows || []).filter(function(r) { return r.document; }).map(function(r) { return parseRestDoc(r.document); });
+      }
+    }
+
+    async function fetchSingleEmployeeSmart(empCode) {
+      try {
+        var sdkPromise = db.collection('employees').doc(empCode).get();
+        var timeoutPromise = new Promise(function(_, reject) {
+          setTimeout(function() { reject(new Error("TIMEOUT")); }, 4000);
+        });
+        var doc = await Promise.race([sdkPromise, timeoutPromise]);
+        if (doc.exists) return { code: doc.id, ...doc.data() };
+      } catch (e) {}
+
+      var url = "https://firestore.googleapis.com/v1/projects/my-apps-a87a3/databases/(default)/documents/employees/" + encodeURIComponent(empCode) + "?key=" + firebaseConfig.apiKey;
+      var res = await fetch(url);
+      if (res.ok) {
+        var d = await res.json();
+        if (d && d.fields) {
+          var parsed = parseRestDoc(d);
+          if (!parsed.code) parsed.code = parsed.docId;
+          return parsed;
+        }
+      }
+      var list = await queryByFieldSmart('employees', 'code', empCode);
+      return list[0] || null;
+    }
+
+    async function fetchSettingsSmart(forceRefresh = false) {
+      if (!forceRefresh) {
+        var cached = getSmartCache('ut_cache_settings');
+        if (cached) return cached;
+      }
+      try {
+        var sdkPromise = db.collection('tms_settings').get();
+        var timeoutPromise = new Promise(function(_, reject) {
+          setTimeout(function() { reject(new Error("TIMEOUT")); }, 4500);
+        });
+        var snap = await Promise.race([sdkPromise, timeoutPromise]);
+        var list = snap.docs.map(function(d) { return d.data(); });
+        setSmartCache('ut_cache_settings', list);
+        return list;
+      } catch (e) {
+        var url = "https://firestore.googleapis.com/v1/projects/my-apps-a87a3/databases/(default)/documents/tms_settings?key=" + firebaseConfig.apiKey;
+        var res = await fetch(url);
+        if (res.ok) {
+          var data = await res.json();
+          var list = (data.documents || []).map(parseRestDoc);
+          setSmartCache('ut_cache_settings', list);
+          return list;
+        }
+        return getSmartCache('ut_cache_settings', true) || [];
+      }
+    }
+
     async function saveRecordReliable(colName, payload) {
       try {
         var sdkPromise = db.collection(colName).add(payload);
         var timeoutPromise = new Promise(function(_, reject) {
-          setTimeout(function() { reject(new Error("TIMEOUT")); }, 6000);
+          setTimeout(function() { reject(new Error("TIMEOUT")); }, 5500);
         });
         await Promise.race([sdkPromise, timeoutPromise]);
       } catch (err) {
@@ -276,69 +393,113 @@
       }
     }
 
-    async function fetchBackupIfMobileBlocked() {
-      if (attLoaded) return;
+    function applySettingsData(settingsList) {
+      sysSettings = {};
+      leaveTypesMap = {};
+      attendanceRules = [];
+      let systemKeys = ['Office Lat', 'Office Lng', 'Geo Radius', 'Work Start', 'Work End'];
+      (settingsList || []).forEach(r => {
+        if (systemKeys.includes(r.category)) sysSettings[r.category] = r.subcategory;
+        if (r.category === 'Leave Type') leaveTypesMap[r.subcategory] = Number(r.allowed_days || 0);
+        if (r.category === 'Attendance Rule') attendanceRules.push(r);
+      });
+      refreshLeaveDropdown();
+      evaluateAttendanceState(false);
+    }
+
+    // Main Quota-Saving Loader (Reads ONLY current employee's records!)
+    async function loadPortalData(forceRefresh = false) {
+      updateStatusBadge(true, true);
       try {
-        var baseUrl = "https://firestore.googleapis.com/v1/projects/my-apps-a87a3/databases/(default)/documents/";
-        var keyParam = "?key=" + firebaseConfig.apiKey;
-
-        var [empRes, setRes, attRes, lvRes] = await Promise.all([
-          fetch(baseUrl + "employees" + keyParam),
-          fetch(baseUrl + "tms_settings" + keyParam),
-          fetch(baseUrl + "attendance" + keyParam),
-          fetch(baseUrl + "leave" + keyParam)
-        ]);
-
-        if (empRes.ok) {
-          var eData = await empRes.json();
-          var found = (eData.documents || []).map(function(doc) {
-            var r = { code: doc.name ? doc.name.split('/').pop() : '' };
-            Object.keys(doc.fields || {}).forEach(function(k) { r[k] = parseRestVal(doc.fields[k]); });
-            return r;
-          }).find(function(e) { return String(e.code || '').trim().toUpperCase() === loggedEmpCode.toUpperCase(); });
-          if (found) {
-            currentEmp = found;
-            try { localStorage.setItem('ut_emp_profile', JSON.stringify(found)); } catch (e) {}
+        // 1. Load Profile (Cached or 1 Read)
+        if (forceRefresh || !currentEmp) {
+          const freshEmp = await fetchSingleEmployeeSmart(loggedEmpCode);
+          if (freshEmp) {
+            currentEmp = freshEmp;
+            try { localStorage.setItem('ut_emp_profile', JSON.stringify(freshEmp)); } catch (e) {}
             renderProfileCard(currentEmp);
           }
         }
 
-        if (setRes.ok) {
-          var sData = await setRes.json();
-          let systemKeys = ['Office Lat', 'Office Lng', 'Geo Radius', 'Work Start', 'Work End'];
-          (sData.documents || []).forEach(function(doc) {
-            var r = {};
-            Object.keys(doc.fields || {}).forEach(function(k) { r[k] = parseRestVal(doc.fields[k]); });
-            if (systemKeys.includes(r.category)) sysSettings[r.category] = r.subcategory;
-            if (r.category === 'Leave Type') leaveTypesMap[r.subcategory] = Number(r.allowed_days || 0);
-            if (r.category === 'Attendance Rule') attendanceRules.push(r);
+        // 2. Load Settings (Cached for 30 mins = 0 Reads on reload)
+        const settingsList = await fetchSettingsSmart(forceRefresh);
+        applySettingsData(settingsList);
+
+        // 3. Load Active Exams (Cached for 30 mins = 0 Reads on reload)
+        let activeExams = !forceRefresh ? getSmartCache('ut_cache_active_exams') : null;
+        if (!activeExams) {
+          activeExams = await queryByFieldSmart('tms_exams', 'status', 'Active');
+          setSmartCache('ut_cache_active_exams', activeExams);
+        }
+        allExams = activeExams;
+        examsLoaded = true;
+
+        // 4. Load ONLY this employee's Attendance, Leave, HR Records, and Exam Results
+        const empCacheKey = 'ut_cache_emp_records_' + loggedEmpCode.toUpperCase();
+        const cachedRecords = !forceRefresh ? getSmartCache(empCacheKey) : null;
+
+        if (cachedRecords) {
+          myAttList = cachedRecords.att || [];
+          myLeaveList = cachedRecords.leave || [];
+          myRecList = cachedRecords.rec || [];
+          myExamResults = cachedRecords.examRes || [];
+        } else {
+          const [attList, lvList, recList, exResList] = await Promise.all([
+            queryByFieldSmart('attendance', 'emp_code', loggedEmpCode),
+            queryByFieldSmart('leave', 'emp_code', loggedEmpCode),
+            queryByFieldSmart('records', 'emp_code', loggedEmpCode),
+            queryByFieldSmart('exam_results', 'emp_code', loggedEmpCode)
+          ]);
+
+          myAttList = attList;
+          myLeaveList = lvList;
+          myRecList = recList;
+          myExamResults = exResList;
+
+          setSmartCache(empCacheKey, {
+            att: myAttList,
+            leave: myLeaveList,
+            rec: myRecList,
+            examRes: myExamResults
           });
-          refreshLeaveDropdown();
         }
 
-        if (attRes.ok) {
-          var aData = await attRes.json();
-          myAttList = (aData.documents || []).map(function(doc) {
-            var r = {};
-            Object.keys(doc.fields || {}).forEach(function(k) { r[k] = parseRestVal(doc.fields[k]); });
-            return r;
-          }).filter(function(a) { return String(a.emp_code || '').trim().toUpperCase() === loggedEmpCode.toUpperCase(); });
-          attLoaded = true;
-          applyAttendanceUI();
-        }
+        attLoaded = true;
+        resultsLoaded = true;
 
-        if (lvRes.ok) {
-          var lData = await lvRes.json();
-          myLeaveList = (lData.documents || []).map(function(doc) {
-            var r = {};
-            Object.keys(doc.fields || {}).forEach(function(k) { r[k] = parseRestVal(doc.fields[k]); });
-            return r;
-          }).filter(function(l) { return String(l.emp_code || '').trim().toUpperCase() === loggedEmpCode.toUpperCase(); });
-          checkLeaveType();
-        }
-
+        updateStatusBadge(true, false);
+        applyAttendanceUI();
+        checkLeaveType();
+        evaluatePendingExams();
         renderMyLedger();
-      } catch (e) {}
+
+      } catch (err) {
+        // Fallback to last known cache if daily quota is temporarily exhausted
+        const empCacheKey = 'ut_cache_emp_records_' + loggedEmpCode.toUpperCase();
+        const fallbackRecs = getSmartCache(empCacheKey, true);
+        if (fallbackRecs) {
+          myAttList = fallbackRecs.att || [];
+          myLeaveList = fallbackRecs.leave || [];
+          myRecList = fallbackRecs.rec || [];
+          myExamResults = fallbackRecs.examRes || [];
+          attLoaded = true;
+          resultsLoaded = true;
+          applyAttendanceUI();
+          checkLeaveType();
+          renderMyLedger();
+        }
+        updateStatusBadge(false, false);
+      }
+    }
+
+    function updateLocalEmpRecordsCache() {
+      const empCacheKey = 'ut_cache_emp_records_' + loggedEmpCode.toUpperCase();
+      setSmartCache(empCacheKey, {
+        att: myAttList,
+        leave: myLeaveList,
+        rec: myRecList,
+        examRes: myExamResults
+      });
     }
 
     function renderProfileCard(emp) {
@@ -367,10 +528,10 @@
         el.innerHTML = '<i class="bi bi-cloud-arrow-up"></i> Syncing...';
       } else if (isLive && navigator.onLine) {
         el.className = 'badge bg-success';
-        el.innerHTML = '<i class="bi bi-wifi"></i> Live';
+        el.innerHTML = '<i class="bi bi-wifi"></i> Live (Tap to Sync)';
       } else {
         el.className = 'badge bg-secondary';
-        el.innerHTML = '<i class="bi bi-wifi-off"></i> Offline';
+        el.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Cached (Tap to Sync)';
       }
     }
 
@@ -507,81 +668,7 @@
     window.onload = () => {
       if (currentEmp) renderProfileCard(currentEmp);
       evaluateAttendanceState(true);
-
-      db.collection('employees').onSnapshot(snap => {
-        updateStatusBadge(true, false);
-        const found = snap.docs.map(d => {
-          const data = d.data();
-          if (!data.code) data.code = d.id;
-          return data;
-        }).find(e => String(e.code).trim().toUpperCase() === loggedEmpCode.toUpperCase());
-
-        if (found) {
-          currentEmp = found;
-          try { localStorage.setItem('ut_emp_profile', JSON.stringify(found)); } catch (e) {}
-          renderProfileCard(currentEmp);
-          refreshLeaveDropdown();
-          evaluatePendingExams();
-          applyAttendanceUI();
-        }
-      });
-
-      db.collection('tms_settings').onSnapshot(snap => {
-        sysSettings = {};
-        leaveTypesMap = {};
-        attendanceRules = [];
-        let systemKeys = ['Office Lat', 'Office Lng', 'Geo Radius', 'Work Start', 'Work End'];
-        snap.docs.forEach(d => {
-          let r = d.data();
-          if (systemKeys.includes(r.category)) sysSettings[r.category] = r.subcategory;
-          if (r.category === 'Leave Type') leaveTypesMap[r.subcategory] = Number(r.allowed_days || 0);
-          if (r.category === 'Attendance Rule') attendanceRules.push(r);
-        });
-        refreshLeaveDropdown();
-        evaluateAttendanceState(false);
-      });
-
-      db.collection('attendance').onSnapshot(snap => {
-        updateStatusBadge(true, false);
-        myAttList = snap.docs
-          .map(d => d.data())
-          .filter(a => String(a.emp_code || '').trim().toUpperCase() === loggedEmpCode.toUpperCase());
-        attLoaded = true;
-        applyAttendanceUI();
-        renderMyLedger();
-      });
-
-      db.collection('leave').onSnapshot(snap => {
-        myLeaveList = snap.docs
-          .map(d => d.data())
-          .filter(l => String(l.emp_code || '').trim().toUpperCase() === loggedEmpCode.toUpperCase());
-        checkLeaveType();
-        renderMyLedger();
-      });
-
-      db.collection('records').onSnapshot(snap => {
-        myRecList = snap.docs
-          .map(d => d.data())
-          .filter(r => String(r.emp_code || '').trim().toUpperCase() === loggedEmpCode.toUpperCase());
-        renderMyLedger();
-      });
-
-      db.collection('tms_exams').onSnapshot(snap => {
-        allExams = snap.docs.map(d => d.data());
-        examsLoaded = true;
-        evaluatePendingExams();
-      });
-
-      db.collection('exam_results').onSnapshot(snap => {
-        myExamResults = snap.docs
-          .map(d => ({ docId: d.id, ...d.data() }))
-          .filter(r => String(r.emp_code || '').trim().toUpperCase() === loggedEmpCode.toUpperCase());
-        resultsLoaded = true;
-        evaluatePendingExams();
-        renderMyLedger();
-      });
-
-      setTimeout(fetchBackupIfMobileBlocked, 4000);
+      loadPortalData(false);
     };
 
     function evaluateAttendanceState(requestNewGps = false) {
@@ -698,9 +785,8 @@
 
       try {
         await saveRecordReliable('attendance', payload);
-        if (!myAttList.some(a => a.created_at === payload.created_at)) {
-          myAttList.push(payload);
-        }
+        myAttList.push(payload);
+        updateLocalEmpRecordsCache();
         updateStatusBadge(true, false);
         applyAttendanceUI();
         renderMyLedger();
@@ -829,7 +915,6 @@
       container.innerHTML = html;
     }
 
-    // Only logs out when the user explicitly clicks the Logout button
     function logoutEmp() {
       try {
         localStorage.removeItem('ut_emp_code');
@@ -890,9 +975,8 @@
 
       try {
         await saveRecordReliable('leave', payload);
-        if (!myLeaveList.some(l => l.created_at === payload.created_at)) {
-          myLeaveList.push(payload);
-        }
+        myLeaveList.push(payload);
+        updateLocalEmpRecordsCache();
         updateStatusBadge(true, false);
         checkLeaveType();
         renderMyLedger();
