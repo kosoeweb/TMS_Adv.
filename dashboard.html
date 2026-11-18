@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>UT - TMS Dashboard</title>
+  <link rel="icon" type="image/png" href="emp.png">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
@@ -39,7 +40,10 @@
         </div>
       </a>
       <div class="d-flex align-items-center">
-        <span id="connStatus" class="badge bg-success me-2"><i class="bi bi-wifi"></i> Live</span>
+        <span id="connStatus" class="badge bg-success me-2"><i class="bi bi-wifi"></i> Ready</span>
+        <button type="button" class="btn btn-warning btn-sm fw-bold me-2" onclick="forceSyncAll()" title="Fetch latest records from server">
+          <i class="bi bi-arrow-clockwise"></i> Sync Data
+        </button>
         <a href="index.html" class="btn btn-outline-light btn-sm mx-1">Directory</a>
         <a href="transaction.html" class="btn btn-outline-light btn-sm mx-1">HR Records</a>
         <a href="dashboard.html" class="btn btn-light btn-sm mx-1">Dashboard</a>
@@ -326,16 +330,195 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     const firebaseConfig = {
-  apiKey: "AIzaSyCnQcsv8TekFkOyOPnb3UWZytPq7zBxLfI",
-  authDomain: "my-apps-a87a3.firebaseapp.com",
-  projectId: "my-apps-a87a3",
-  storageBucket: "my-apps-a87a3.firebasestorage.app",
-  messagingSenderId: "880270085984",
-  appId: "1:880270085984:web:d65a0c381172def3af1805"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-db.settings({ experimentalAutoDetectLongPolling: true });
+      apiKey: "AIzaSyCnQcsv8TekFkOyOPnb3UWZytPq7zBxLfI",
+      authDomain: "my-apps-a87a3.firebaseapp.com",
+      projectId: "my-apps-a87a3",
+      storageBucket: "my-apps-a87a3.firebasestorage.app",
+      messagingSenderId: "880270085984",
+      appId: "1:880270085984:web:d65a0c381172def3af1805"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
+
+    // ==================== SHARED ADMIN QUOTA-SAVER ENGINE ====================
+    // Converts .onSnapshot() into 15-min Shared Session Cache + 0-Read Local Updates
+    (function installAdminQuotaSaver(dbInstance) {
+      const CACHE_TTL = 15 * 60 * 1000;
+      window._utMemCache = window._utMemCache || {};
+      window._utListeners = window._utListeners || {};
+      const origCollection = dbInstance.collection.bind(dbInstance);
+
+      function parseRestVal(v) {
+        if (!v || typeof v !== 'object') return v;
+        if (v.stringValue !== undefined) return v.stringValue;
+        if (v.integerValue !== undefined) return Number(v.integerValue);
+        if (v.doubleValue !== undefined) return Number(v.doubleValue);
+        if (v.booleanValue !== undefined) return Boolean(v.booleanValue);
+        if (v.nullValue !== undefined) return null;
+        if (v.arrayValue !== undefined) return (v.arrayValue.values || []).map(parseRestVal);
+        if (v.mapValue !== undefined) {
+          const obj = {};
+          const f = v.mapValue.fields || {};
+          Object.keys(f).forEach(k => { obj[k] = parseRestVal(f[k]); });
+          return obj;
+        }
+        return '';
+      }
+
+      function getCache(col) {
+        try {
+          const raw = sessionStorage.getItem('ut_admin_cache_' + col);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Date.now() - parsed.ts < CACHE_TTL) return parsed.items;
+          }
+        } catch (e) {}
+        return window._utMemCache[col] || null;
+      }
+
+      function setCache(col, items) {
+        window._utMemCache[col] = items;
+        try {
+          sessionStorage.setItem('ut_admin_cache_' + col, JSON.stringify({ ts: Date.now(), items: items }));
+        } catch (e) {}
+      }
+
+      function makeSnap(col, items) {
+        const origCol = origCollection(col);
+        const docs = (items || []).map(item => {
+          const docId = item._docId || item.id || item.docId || item.code || '';
+          const clean = Object.assign({}, item);
+          delete clean._docId;
+          return {
+            id: docId,
+            exists: true,
+            data: () => Object.assign({}, clean),
+            ref: wrapDocRef(col, docId, origCol.doc(docId))
+          };
+        });
+        return {
+          empty: docs.length === 0,
+          size: docs.length,
+          docs: docs,
+          forEach: fn => docs.forEach(fn),
+          metadata: { fromCache: false, hasPendingWrites: false }
+        };
+      }
+
+      function notifyListeners(col, items) {
+        const snap = makeSnap(col, items);
+        (window._utListeners[col] || []).forEach(cb => {
+          try { cb(snap); } catch (e) {}
+        });
+      }
+
+      function wrapDocRef(col, docId, realDocRef) {
+        return {
+          id: docId,
+          get: () => realDocRef.get(),
+          set: async (data, opts) => {
+            await realDocRef.set(data, opts);
+            let list = getCache(col) || [];
+            const idx = list.findIndex(x => (x._docId || x.id || x.docId || x.code) === docId);
+            const updated = Object.assign({}, idx >= 0 ? list[idx] : {}, data, { _docId: docId });
+            if (idx >= 0) list[idx] = updated; else list.push(updated);
+            setCache(col, list);
+            notifyListeners(col, list);
+          },
+          update: async (data) => {
+            await realDocRef.update(data);
+            let list = getCache(col) || [];
+            const idx = list.findIndex(x => (x._docId || x.id || x.docId || x.code) === docId);
+            if (idx >= 0) {
+              list[idx] = Object.assign({}, list[idx], data);
+              setCache(col, list);
+              notifyListeners(col, list);
+            }
+          },
+          delete: async () => {
+            await realDocRef.delete();
+            let list = (getCache(col) || []).filter(x => (x._docId || x.id || x.docId || x.code) !== docId);
+            setCache(col, list);
+            notifyListeners(col, list);
+          }
+        };
+      }
+
+      async function loadCol(col, force = false) {
+        if (!force) {
+          const cached = getCache(col);
+          if (cached) return makeSnap(col, cached);
+        }
+        try {
+          const sdkPromise = origCollection(col).get();
+          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), 5500));
+          const snap = await Promise.race([sdkPromise, timeoutPromise]);
+          const items = snap.docs.map(d => Object.assign({ _docId: d.id }, d.data()));
+          setCache(col, items);
+          return makeSnap(col, items);
+        } catch (err) {
+          const url = "https://firestore.googleapis.com/v1/projects/" + firebaseConfig.projectId + "/databases/(default)/documents/" + col + "?pageSize=500&key=" + firebaseConfig.apiKey;
+          const res = await fetch(url);
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+          const items = (data.documents || []).map(doc => {
+            const id = doc.name ? doc.name.split('/').pop() : '';
+            const obj = { _docId: id };
+            Object.keys(doc.fields || {}).forEach(k => { obj[k] = parseRestVal(doc.fields[k]); });
+            return obj;
+          });
+          setCache(col, items);
+          return makeSnap(col, items);
+        }
+      }
+
+      dbInstance.collection = function(colName) {
+        const realCol = origCollection(colName);
+        return {
+          get: (opts) => loadCol(colName, Boolean(opts && opts.source === 'server')),
+          onSnapshot: function(a, b, c) {
+            const cb = typeof a === 'function' ? a : b;
+            const errCb = typeof a === 'function' ? b : c;
+            window._utListeners[colName] = window._utListeners[colName] || [];
+            window._utListeners[colName].push(cb);
+            loadCol(colName, false).then(snap => cb(snap)).catch(err => { if (errCb) errCb(err); });
+            return function() {};
+          },
+          add: async function(data) {
+            const ref = await realCol.add(data);
+            let list = getCache(colName) || [];
+            list.push(Object.assign({}, data, { _docId: ref.id }));
+            setCache(colName, list);
+            notifyListeners(colName, list);
+            return ref;
+          },
+          doc: function(docId) {
+            return wrapDocRef(colName, String(docId), realCol.doc(String(docId)));
+          },
+          where: realCol.where.bind(realCol)
+        };
+      };
+
+      window.forceSyncAll = async function() {
+        const badge = document.getElementById('connStatus');
+        if (badge) {
+          badge.className = 'badge bg-warning text-dark me-2';
+          badge.innerHTML = '<i class="bi bi-arrow-repeat"></i> Syncing...';
+        }
+        const cols = Object.keys(window._utListeners);
+        for (const c of cols) {
+          try {
+            const snap = await loadCol(c, true);
+            (window._utListeners[c] || []).forEach(cb => cb(snap));
+          } catch (e) {}
+        }
+        if (badge) {
+          badge.className = 'badge bg-success me-2';
+          badge.innerHTML = '<i class="bi bi-wifi"></i> Synced';
+        }
+      };
+    })(db);
 
     let rawData = [], activeEmps = [], attData = [], leaveData = [], examResultsData = [];
     let leaveQuotaMap = {};
@@ -558,8 +741,12 @@ db.settings({ experimentalAutoDetectLongPolling: true });
 
       db.collection('employees').onSnapshot(snap => {
         document.getElementById('connStatus').className = 'badge bg-success me-2';
-        document.getElementById('connStatus').innerHTML = '<i class="bi bi-wifi"></i> Live';
-        activeEmps = snap.docs.map(d => d.data()).filter(i => i.status !== 'Inactive');
+        document.getElementById('connStatus').innerHTML = '<i class="bi bi-wifi"></i> Ready';
+        activeEmps = snap.docs.map(d => {
+          const data = d.data();
+          if (!data.code) data.code = d.id;
+          return data;
+        }).filter(i => i.status !== 'Inactive');
         document.getElementById('empList').innerHTML = activeEmps.map(i => `<option value="${i.code}">${i.code} - ${i.name}</option>`).join('');
         renderView();
       }, () => {
