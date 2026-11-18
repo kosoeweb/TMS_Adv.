@@ -60,22 +60,22 @@
       <div class="tab-content">
         <!-- 1. REGISTER EMPLOYEE -->
         <div class="tab-pane fade show active" id="createEmp">
-          <form id="formCreate" onsubmit="handleEmpSubmit(event, 'create')">
+          <form id="formCreate" onsubmit="handleEmpSubmit(event, 'create')" novalidate>
             <div class="row g-3">
-              <div class="col-md-3"><label class="fw-bold">Employee ID</label><input type="text" class="form-control" name="code" placeholder="e.g. UT-001" required></div>
-              <div class="col-md-3"><label class="fw-bold">Full Name</label><input type="text" class="form-control" name="name" required></div>
-              <div class="col-md-3"><label class="fw-bold text-primary">Father Name</label><input type="text" class="form-control border-primary" name="fatherName" placeholder="e.g. U Aung" required></div>
-              <div class="col-md-3"><label class="fw-bold text-primary">NRC No.</label><input type="text" class="form-control border-primary" name="nrc" placeholder="e.g. 12/YaKaNa(N)123456" required></div>
+              <div class="col-md-3"><label class="fw-bold">Employee ID *</label><input type="text" class="form-control" name="code" placeholder="e.g. UT-001" required></div>
+              <div class="col-md-3"><label class="fw-bold">Full Name *</label><input type="text" class="form-control" name="name" required></div>
+              <div class="col-md-3"><label class="fw-bold text-primary">Father Name</label><input type="text" class="form-control border-primary" name="fatherName" placeholder="e.g. U Aung"></div>
+              <div class="col-md-3"><label class="fw-bold text-primary">NRC No.</label><input type="text" class="form-control border-primary" name="nrc" placeholder="e.g. 12/YaKaNa(N)123456"></div>
 
-              <div class="col-md-3"><label class="fw-bold text-danger">Login Username</label><input type="text" class="form-control border-danger" name="username" required></div>
+              <div class="col-md-3"><label class="fw-bold text-danger">Login Username *</label><input type="text" class="form-control border-danger" name="username" required></div>
               <div class="col-md-3">
-                <label class="fw-bold text-danger">Login Password</label>
+                <label class="fw-bold text-danger">Login Password *</label>
                 <div class="input-group">
                   <input type="password" class="form-control border-danger" name="password" id="createPass" required>
                   <button type="button" class="btn btn-outline-secondary" onclick="togglePassField('createPass', this)"><i class="bi bi-eye"></i></button>
                 </div>
               </div>
-              <div class="col-md-3"><label class="fw-bold">Department</label><select class="form-select dept-dropdown" name="dept" onchange="updateSubAndPos(this, 'create')" required></select></div>
+              <div class="col-md-3"><label class="fw-bold">Department *</label><select class="form-select dept-dropdown" name="dept" onchange="updateSubAndPos(this, 'create')" required></select></div>
               <div class="col-md-3"><label class="fw-bold">Sub-Department</label><select class="form-select sub-dept-dropdown" name="subDept"><option value="">Select Dept First</option></select></div>
 
               <div class="col-md-3"><label class="fw-bold">Position</label><select class="form-select create-position" name="position"><option value="">Select Dept First</option></select></div>
@@ -83,7 +83,7 @@
               <div class="col-md-3"><label class="fw-bold">Phone</label><input type="text" class="form-control" name="phone"></div>
               <div class="col-md-3"><label class="fw-bold">Email</label><input type="email" class="form-control" name="email"></div>
 
-              <div class="col-md-3"><label class="fw-bold text-success">Join Date</label><input type="date" class="form-control border-success" name="joinDate" required></div>
+              <div class="col-md-3"><label class="fw-bold text-success">Join Date</label><input type="date" class="form-control border-success" name="joinDate"></div>
               <div class="col-md-3"><label class="fw-bold text-info text-dark">Insurance Policy No.</label><input type="text" class="form-control border-info" name="insPolicyNo" placeholder="Policy Number"></div>
               <div class="col-md-2"><label class="fw-bold text-info text-dark">Insurance Valid Date</label><input type="date" class="form-control border-info" name="insValidDate"></div>
               <div class="col-md-2"><label class="fw-bold text-primary">SSB ID</label><input type="text" class="form-control border-primary" name="ssbId" placeholder="SSB No."></div>
@@ -112,11 +112,14 @@
 
         <!-- 2. EDIT EMPLOYEE PROFILE -->
         <div class="tab-pane fade" id="editEmp">
-          <form id="formEdit" onsubmit="handleEmpSubmit(event, 'edit')">
+          <form id="formEdit" onsubmit="handleEmpSubmit(event, 'edit')" novalidate>
+            <input type="hidden" id="originalDocId" value="">
+            <input type="hidden" id="originalEmpCode" value="">
+
             <div class="row g-3 mb-3 bg-light p-2 rounded">
-              <div class="col-md-4">
-                <label class="fw-bold">Select Employee</label>
-                <select class="form-select border-primary" id="editEmpSelect" name="code" onchange="fetchEmpData()" required></select>
+              <div class="col-md-5">
+                <label class="fw-bold">Select Employee to Edit</label>
+                <select class="form-select border-primary" id="editEmpSelect" onchange="fetchEmpData()"></select>
               </div>
               <div class="col-md-3 align-self-end" id="statusContainer" style="display:none;">
                 <label class="fw-bold text-dark mb-2">Employment Status</label>
@@ -128,36 +131,40 @@
             </div>
 
             <div class="row g-3" id="editFields" style="display:none;">
-              <div class="col-md-3"><label class="fw-bold">Full Name</label><input type="text" class="form-control" name="name" required></div>
-              <div class="col-md-3"><label class="fw-bold text-primary">Father Name</label><input type="text" class="form-control border-primary" name="fatherName" required></div>
-              <div class="col-md-3"><label class="fw-bold text-primary">NRC No.</label><input type="text" class="form-control border-primary" name="nrc" required></div>
-              <div class="col-md-3"><label class="fw-bold">Phone</label><input type="text" class="form-control" name="phone"></div>
-
-              <div class="col-md-3"><label class="fw-bold text-danger">Login Username</label><input type="text" class="form-control border-danger" name="username" required></div>
               <div class="col-md-3">
-                <label class="fw-bold text-danger">Login Password</label>
+                <label class="fw-bold text-primary">Employee ID (Code) *</label>
+                <input type="text" class="form-control border-primary fw-bold" name="code" id="editCodeInput" required>
+              </div>
+              <div class="col-md-3"><label class="fw-bold">Full Name *</label><input type="text" class="form-control" name="name" required></div>
+              <div class="col-md-3"><label class="fw-bold text-primary">Father Name</label><input type="text" class="form-control border-primary" name="fatherName"></div>
+              <div class="col-md-3"><label class="fw-bold text-primary">NRC No.</label><input type="text" class="form-control border-primary" name="nrc"></div>
+
+              <div class="col-md-3"><label class="fw-bold text-danger">Login Username *</label><input type="text" class="form-control border-danger" name="username" required></div>
+              <div class="col-md-3">
+                <label class="fw-bold text-danger">Login Password *</label>
                 <div class="input-group">
                   <input type="password" class="form-control border-danger" name="password" id="editPass" required>
                   <button type="button" class="btn btn-outline-secondary" onclick="togglePassField('editPass', this)"><i class="bi bi-eye"></i></button>
                 </div>
               </div>
-              <div class="col-md-3"><label class="fw-bold">Department</label><select class="form-select dept-dropdown" name="dept" onchange="updateSubAndPos(this, 'edit')" required></select></div>
+              <div class="col-md-3"><label class="fw-bold">Department</label><select class="form-select dept-dropdown" name="dept" onchange="updateSubAndPos(this, 'edit')"></select></div>
               <div class="col-md-3"><label class="fw-bold">Sub-Department</label><select class="form-select sub-dept-dropdown" name="subDept"></select></div>
 
               <div class="col-md-3"><label class="fw-bold">Position</label><select class="form-select edit-position" name="position"></select></div>
+              <div class="col-md-3"><label class="fw-bold">Phone</label><input type="text" class="form-control" name="phone"></div>
               <div class="col-md-3"><label class="fw-bold">Email</label><input type="email" class="form-control" name="email"></div>
+              <div class="col-md-3"><label class="fw-bold text-success">Join Date</label><input type="date" class="form-control border-success" name="joinDate"></div>
+
               <div class="col-md-3"><label class="fw-bold text-primary">SSB ID</label><input type="text" class="form-control border-primary" name="ssbId"></div>
               <div class="col-md-3"><label class="fw-bold text-primary">Tax ID</label><input type="text" class="form-control border-primary" name="taxId"></div>
-
-              <div class="col-md-3"><label class="fw-bold text-success">Join Date</label><input type="date" class="form-control border-success" name="joinDate"></div>
-              <div class="col-md-3"><label class="fw-bold text-info text-dark">Insurance Policy No.</label><input type="text" class="form-control border-info" name="insPolicyNo"></div>
+              <div class="col-md-2"><label class="fw-bold text-info text-dark">Insurance Policy No.</label><input type="text" class="form-control border-info" name="insPolicyNo"></div>
               <div class="col-md-2"><label class="fw-bold text-info text-dark">Insurance Valid Date</label><input type="date" class="form-control border-info" name="insValidDate"></div>
-              <div class="col-md-2 text-center">
-                <label class="fw-bold">Current Photo</label><br>
-                <img id="editEmpThumbnail" src="" style="max-height: 55px; display: none; border-radius: 5px; margin: 0 auto;">
-                <span id="noImageText" class="text-muted small" style="display:none;">No Photo</span>
+              <div class="col-md-1 text-center">
+                <label class="fw-bold small">Photo</label><br>
+                <img id="editEmpThumbnail" src="" style="max-height: 45px; display: none; border-radius: 5px; margin: 0 auto;">
+                <span id="noImageText" class="text-muted small" style="display:none;">None</span>
               </div>
-              <div class="col-md-2"><label class="fw-bold">Update Photo</label><input type="file" class="form-control" id="editPhotoFile" accept="image/*"></div>
+              <div class="col-md-1"><label class="fw-bold small">New Photo</label><input type="file" class="form-control form-control-sm" id="editPhotoFile" accept="image/*"></div>
 
               <div class="col-md-12">
                 <label class="fw-bold">Address</label>
@@ -177,7 +184,11 @@
               <div class="col-md-6"><label class="fw-bold">Internal Remarks</label><textarea class="form-control" name="remark" rows="3"></textarea></div>
 
               <input type="hidden" name="photoUrl" id="existingPhotoUrl">
-              <div class="col-md-12"><button type="submit" class="btn btn-success px-4 fw-bold" id="btnEdit">Update Profile</button></div>
+              <div class="col-md-12">
+                <button type="submit" class="btn btn-success px-5 fw-bold py-2 shadow-sm" id="btnEdit">
+                  <i class="bi bi-check2-circle"></i> Update Profile
+                </button>
+              </div>
             </div>
           </form>
         </div>
@@ -360,7 +371,7 @@
               </button>
             </div>
             <div class="small text-muted mb-3">
-- <b>Check-In</b> rules are relative to <code>Work Start</code> time, and <b>Check-Out</b> rules are relative to <code>Work End</code> time. (Negative numbers like <code>-999</code> represent minutes before scheduled time; positive numbers represent minutes after scheduled time.)
+              - <b>Check-In</b> rules are relative to <code>Work Start</code> time, and <b>Check-Out</b> rules are relative to <code>Work End</code> time.
             </div>
 
             <form id="formTimeRule" onsubmit="saveAttendanceRule(event)" class="mb-3">
@@ -582,18 +593,18 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     const firebaseConfig = {
-      apiKey: "AIzaSyCnQcsv8TekFkOyOPnb3UWZytPq7zBxLfI",
-      authDomain: "my-apps-a87a3.firebaseapp.com",
-      projectId: "my-apps-a87a3",
-      storageBucket: "my-apps-a87a3.firebasestorage.app",
-      messagingSenderId: "880270085984",
-      appId: "1:880270085984:web:d65a0c381172def3af1805"
-    };
+  apiKey: "AIzaSyCiI78VStxxbhAO1WixiKra4r8ggIl6cxI",
+  authDomain: "tms-adv.firebaseapp.com",
+  projectId: "tms-adv",
+  storageBucket: "tms-adv.firebasestorage.app",
+  messagingSenderId: "1032960934679",
+  appId: "1:1032960934679:web:60a32de5f3d1e33532ad52"
+};
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-    db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
+    db.settings({ experimentalAutoDetectLongPolling: true });
 
-    // ==================== SHARED ADMIN QUOTA-SAVER ENGINE ====================
+    // ==================== SHARED ADMIN QUOTA-SAVER ENGINE (WITH REST WRITE FALLBACK) ====================
     (function installAdminQuotaSaver(dbInstance) {
       const CACHE_TTL = 15 * 60 * 1000;
       window._utMemCache = window._utMemCache || {};
@@ -615,6 +626,27 @@
           return obj;
         }
         return '';
+      }
+
+      function toRestVal(v) {
+        if (v === null || v === undefined) return { nullValue: null };
+        if (typeof v === 'boolean') return { booleanValue: v };
+        if (typeof v === 'number') {
+          return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+        }
+        if (Array.isArray(v)) return { arrayValue: { values: v.map(toRestVal) } };
+        if (typeof v === 'object') return { mapValue: { fields: toRestFields(v) } };
+        return { stringValue: String(v) };
+      }
+
+      function toRestFields(obj) {
+        const fields = {};
+        Object.keys(obj).forEach(k => {
+          if (k !== '_docId' && k !== 'docId') {
+            fields[k] = toRestVal(obj[k]);
+          }
+        });
+        return fields;
       }
 
       function getCache(col) {
@@ -664,32 +696,65 @@
         });
       }
 
+      async function restPatchDoc(col, docId, mergedData) {
+        const url = "https://firestore.googleapis.com/v1/projects/" + firebaseConfig.projectId + "/databases/(default)/documents/" + col + "/" + encodeURIComponent(docId) + "?key=" + firebaseConfig.apiKey;
+        const res = await fetch(url, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fields: toRestFields(mergedData) })
+        });
+        if (!res.ok) throw new Error("Database write failed (HTTP " + res.status + ")");
+      }
+
       function wrapDocRef(col, docId, realDocRef) {
         return {
           id: docId,
           get: () => realDocRef.get(),
           set: async (data, opts) => {
-            await realDocRef.set(data, opts);
             let list = getCache(col) || [];
-            const idx = list.findIndex(x => (x._docId || x.id || x.docId || x.code || x.exam_id) === docId);
-            const updated = Object.assign({}, idx >= 0 ? list[idx] : {}, data, { _docId: docId });
-            if (idx >= 0) list[idx] = updated; else list.push(updated);
+            const idx = list.findIndex(x => String(x._docId || x.id || x.docId || x.code || x.exam_id) === String(docId));
+            const merged = Object.assign({}, idx >= 0 ? list[idx] : {}, data, { _docId: docId });
+
+            try {
+              const sdkP = realDocRef.set(data, Object.assign({ merge: true }, opts || {}));
+              const timeP = new Promise((_, rej) => setTimeout(() => rej(new Error("TIMEOUT")), 4500));
+              await Promise.race([sdkP, timeP]);
+            } catch (err) {
+              await restPatchDoc(col, docId, merged);
+            }
+
+            if (idx >= 0) list[idx] = merged; else list.push(merged);
             setCache(col, list);
             notifyListeners(col, list);
           },
           update: async (data) => {
-            await realDocRef.update(data);
             let list = getCache(col) || [];
-            const idx = list.findIndex(x => (x._docId || x.id || x.docId || x.code || x.exam_id) === docId);
-            if (idx >= 0) {
-              list[idx] = Object.assign({}, list[idx], data);
-              setCache(col, list);
-              notifyListeners(col, list);
+            const idx = list.findIndex(x => String(x._docId || x.id || x.docId || x.code || x.exam_id) === String(docId));
+            const merged = Object.assign({}, idx >= 0 ? list[idx] : {}, data, { _docId: docId });
+
+            try {
+              // Use .set(..., { merge: true }) so it never fails with "No document to update"
+              const sdkP = realDocRef.set(data, { merge: true });
+              const timeP = new Promise((_, rej) => setTimeout(() => rej(new Error("TIMEOUT")), 4500));
+              await Promise.race([sdkP, timeP]);
+            } catch (err) {
+              await restPatchDoc(col, docId, merged);
             }
+
+            if (idx >= 0) list[idx] = merged; else list.push(merged);
+            setCache(col, list);
+            notifyListeners(col, list);
           },
           delete: async () => {
-            await realDocRef.delete();
-            let list = (getCache(col) || []).filter(x => (x._docId || x.id || x.docId || x.code || x.exam_id) !== docId);
+            try {
+              const sdkP = realDocRef.delete();
+              const timeP = new Promise((_, rej) => setTimeout(() => rej(new Error("TIMEOUT")), 4500));
+              await Promise.race([sdkP, timeP]);
+            } catch (err) {
+              const url = "https://firestore.googleapis.com/v1/projects/" + firebaseConfig.projectId + "/databases/(default)/documents/" + col + "/" + encodeURIComponent(docId) + "?key=" + firebaseConfig.apiKey;
+              await fetch(url, { method: 'DELETE' });
+            }
+            let list = (getCache(col) || []).filter(x => String(x._docId || x.id || x.docId || x.code || x.exam_id) !== String(docId));
             setCache(col, list);
             notifyListeners(col, list);
           }
@@ -703,7 +768,7 @@
         }
         try {
           const sdkPromise = origCollection(col).get();
-          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), 5500));
+          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), 5000));
           const snap = await Promise.race([sdkPromise, timeoutPromise]);
           const items = snap.docs.map(d => Object.assign({ _docId: d.id }, d.data()));
           setCache(col, items);
@@ -758,12 +823,28 @@
             return function() {};
           },
           add: async function(data) {
-            const ref = await realCol.add(data);
+            let newId = '';
+            try {
+              const sdkP = realCol.add(data);
+              const timeP = new Promise((_, rej) => setTimeout(() => rej(new Error("TIMEOUT")), 4500));
+              const ref = await Promise.race([sdkP, timeP]);
+              newId = ref.id;
+            } catch (err) {
+              const url = "https://firestore.googleapis.com/v1/projects/" + firebaseConfig.projectId + "/databases/(default)/documents/" + colName + "?key=" + firebaseConfig.apiKey;
+              const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fields: toRestFields(data) })
+              });
+              if (!res.ok) throw new Error("Failed to add document (HTTP " + res.status + ")");
+              const saved = await res.json();
+              newId = saved.name ? saved.name.split('/').pop() : ('doc_' + Date.now());
+            }
             let list = getCache(colName) || [];
-            list.push(Object.assign({}, data, { _docId: ref.id }));
+            list.push(Object.assign({}, data, { _docId: newId }));
             setCache(colName, list);
             notifyListeners(colName, list);
-            return ref;
+            return { id: newId };
           },
           doc: function(docId) {
             return wrapDocRef(colName, String(docId), realCol.doc(String(docId)));
@@ -799,9 +880,8 @@
 
     // ==================== PIN PROTECTION FOR ONLINE EXAM SETUP TAB ====================
     let examSetupUnlocked = false;
-    let configuredExamPin = "1234"; // Default PIN if not changed in database
+    let configuredExamPin = "1234";
 
-    // Re-lock Exam Setup automatically whenever the user switches to another tab
     document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('#mainDirTabs a[data-bs-toggle="tab"]').forEach(tabEl => {
         tabEl.addEventListener('shown.bs.tab', () => {
@@ -922,8 +1002,8 @@
         el.innerHTML = '<i class="bi bi-wifi"></i> Ready';
         appData.emps = snap.docs.map(d => {
           const data = d.data();
-          if (!data.code) data.code = d.id;
-          return data;
+          const code = String(data.code || d.id).trim();
+          return Object.assign({}, data, { code: code, _docId: d.id });
         });
         renderEmps();
         renderExamTargetEmps();
@@ -983,16 +1063,20 @@
         </div>
       `).join('');
 
-      editBox.innerHTML = lTypes.map(lt => `
-        <div class="col-md-3 col-6">
-          <label class="small fw-bold text-secondary">${lt.name} (Default: ${lt.allowed_days}d)</label>
-          <input type="number" step="0.5" min="0" class="form-control form-control-sm border-warning edit-open-leave" data-ltype="${lt.name}" value="${lt.allowed_days}">
-        </div>
-      `).join('');
+      // Preserve current values in Edit box if an employee is already open
+      const curSelected = document.getElementById('editEmpSelect').value;
+      const openEmp = appData.emps.find(i => i.code === curSelected || i._docId === curSelected);
+      const empOpen = (openEmp && openEmp.openingLeaves) ? openEmp.openingLeaves : {};
 
-      if (document.getElementById('editEmpSelect').value) {
-        fetchEmpData();
-      }
+      editBox.innerHTML = lTypes.map(lt => {
+        const val = empOpen[lt.name] !== undefined ? empOpen[lt.name] : lt.allowed_days;
+        return `
+          <div class="col-md-3 col-6">
+            <label class="small fw-bold text-secondary">${lt.name} (Default: ${lt.allowed_days}d)</label>
+            <input type="number" step="0.5" min="0" class="form-control form-control-sm border-warning edit-open-leave" data-ltype="${lt.name}" value="${val}">
+          </div>
+        `;
+      }).join('');
     }
 
     async function resetAllEmployeesLeaveForNewYear() {
@@ -1079,7 +1163,12 @@
       let mainDepts = [...new Set(appData.depts.map(d => d[0]).filter(Boolean))];
       let deptOpts = '<option value="">Select Department...</option>' + mainDepts.map(d => `<option value="${d}">${d}</option>`).join('');
       document.querySelectorAll('.dept-dropdown').forEach(el => {
-        let val = el.value; el.innerHTML = deptOpts; el.value = val;
+        let val = el.value;
+        el.innerHTML = deptOpts;
+        if (val && !mainDepts.includes(val)) {
+          el.innerHTML += `<option value="${val}">${val}</option>`;
+        }
+        el.value = val;
       });
       let pairDeptEl = document.getElementById('pairDept');
       let curPairDept = pairDeptEl.value;
@@ -1464,7 +1553,23 @@
       let cur = sel.value;
       let opts = appData.emps.map(e => `<option value="${e.code}">${e.code} - ${e.name} ${e.status === 'Inactive' ? '(Resigned)' : ''}</option>`).join('');
       sel.innerHTML = opts ? '<option value="">Select Employee...</option>' + opts : '<option value="">No Data Found</option>';
-      sel.value = cur;
+      if (cur && appData.emps.some(e => e.code === cur)) {
+        sel.value = cur;
+      }
+    }
+
+    function ensureSelectOption(selectEl, val) {
+      if (!selectEl || !val) return;
+      const strVal = String(val).trim();
+      if (!strVal) return;
+      const exists = Array.from(selectEl.options).some(opt => opt.value === strVal);
+      if (!exists) {
+        const opt = document.createElement('option');
+        opt.value = strVal;
+        opt.textContent = strVal;
+        selectEl.appendChild(opt);
+      }
+      selectEl.value = strVal;
     }
 
     function updateSubAndPos(deptEl, actionType) {
@@ -1495,6 +1600,7 @@
             canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
             resolve(canvas.toDataURL('image/jpeg', 0.7));
           };
+          img.onerror = reject;
           img.src = e.target.result;
         };
         reader.onerror = reject;
@@ -1502,52 +1608,121 @@
       });
     }
 
+    async function syncEmployeeCodeAndNameInRecords(oldCode, newCode, newName) {
+      const cols = ['attendance', 'leave', 'records', 'exam_results'];
+      for (const col of cols) {
+        try {
+          const snap = await db.collection(col).where('emp_code', '==', oldCode).get();
+          const updates = snap.docs.map(d => {
+            const payload = { emp_code: newCode };
+            if (col !== 'records' && newName) payload.emp_name = newName;
+            return d.ref.update(payload);
+          });
+          await Promise.all(updates);
+        } catch (e) {}
+      }
+    }
+
     async function handleEmpSubmit(e, action) {
       e.preventDefault();
       let form = e.target;
       let data = Object.fromEntries(new FormData(form).entries());
-      data.code = String(data.code).trim();
-      let fileInput = document.getElementById(action === 'create' ? 'photoFile' : 'editPhotoFile');
+      data.code = String(data.code || '').trim();
+      data.name = String(data.name || '').trim();
+      data.username = String(data.username || '').trim();
+      data.password = String(data.password || '').trim();
 
-      data.status = action === 'edit' ? (document.getElementById('statusToggle').checked ? 'Active' : 'Inactive') : 'Active';
-      data.dept = data.subDept ? `${data.dept} > ${data.subDept}` : data.dept;
-      delete data.subDept;
-
-      let openingLeaves = {};
-      const selector = action === 'create' ? '.create-open-leave' : '.edit-open-leave';
-      document.querySelectorAll(selector).forEach(inp => {
-        const lType = inp.getAttribute('data-ltype');
-        if (lType) openingLeaves[lType] = Number(inp.value || 0);
-      });
-      data.openingLeaves = openingLeaves;
-
-      if (fileInput.files.length > 0) {
-        data.photoUrl = await compressImage(fileInput.files[0], 400);
-      } else {
-        data.photoUrl = action === 'edit' ? document.getElementById('existingPhotoUrl').value : "";
+      if (!data.code || !data.name || !data.username || !data.password) {
+        return Swal.fire('Missing Required Fields', 'Please fill in Employee ID, Full Name, Username, and Password.', 'warning');
       }
 
-      if (action === 'create') {
-        data.created_at = Date.now();
-        await db.collection('employees').doc(data.code).set(data);
-        Swal.fire('Success', 'New Employee registered.', 'success');
-        form.reset();
-        renderOpeningLeaveInputs();
-      } else {
-        await db.collection('employees').doc(data.code).update(data);
-        Swal.fire('Success', 'Employee profile updated.', 'success');
+      const btn = document.getElementById(action === 'create' ? 'btnCreate' : 'btnEdit');
+      const origBtnHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Saving...';
+
+      try {
+        let fileInput = document.getElementById(action === 'create' ? 'photoFile' : 'editPhotoFile');
+
+        data.status = action === 'edit' ? (document.getElementById('statusToggle').checked ? 'Active' : 'Inactive') : 'Active';
+        data.dept = data.subDept ? `${data.dept} > ${data.subDept}` : (data.dept || '');
+        delete data.subDept;
+
+        let openingLeaves = {};
+        const selector = action === 'create' ? '.create-open-leave' : '.edit-open-leave';
+        document.querySelectorAll(selector).forEach(inp => {
+          const lType = inp.getAttribute('data-ltype');
+          if (lType) openingLeaves[lType] = Number(inp.value || 0);
+        });
+        data.openingLeaves = openingLeaves;
+
+        if (fileInput && fileInput.files && fileInput.files.length > 0) {
+          data.photoUrl = await compressImage(fileInput.files[0], 400);
+        } else {
+          data.photoUrl = action === 'edit' ? document.getElementById('existingPhotoUrl').value : "";
+        }
+
+        if (action === 'create') {
+          data.created_at = Date.now();
+          await db.collection('employees').doc(data.code).set(data);
+          Swal.fire('Success', `New Employee (${data.code} - ${data.name}) registered successfully.`, 'success');
+          form.reset();
+          renderOpeningLeaveInputs();
+        } else {
+          const origDocId = String(document.getElementById('originalDocId').value || '').trim();
+          const origEmpCode = String(document.getElementById('originalEmpCode').value || '').trim();
+
+          // Save to the target Employee Code document using set with merge
+          await db.collection('employees').doc(data.code).set(data, { merge: true });
+
+          // If the old Firestore Document ID was different from the new code, remove the old duplicate document
+          if (origDocId && origDocId !== data.code) {
+            try { await db.collection('employees').doc(origDocId).delete(); } catch (delErr) {}
+          }
+
+          // If Employee Code changed, automatically sync Attendance, Leave, Records & Exam Results
+          if (origEmpCode && origEmpCode.toUpperCase() !== data.code.toUpperCase()) {
+            await syncEmployeeCodeAndNameInRecords(origEmpCode, data.code, data.name);
+          }
+
+          document.getElementById('originalDocId').value = data.code;
+          document.getElementById('originalEmpCode').value = data.code;
+          renderEmps();
+          document.getElementById('editEmpSelect').value = data.code;
+          if (fileInput) fileInput.value = '';
+          if (data.photoUrl) {
+            document.getElementById('existingPhotoUrl').value = data.photoUrl;
+            const thumbImg = document.getElementById('editEmpThumbnail');
+            thumbImg.src = data.photoUrl;
+            thumbImg.style.display = 'block';
+            document.getElementById('noImageText').style.display = 'none';
+          }
+
+          Swal.fire('Updated!', `Profile for "${data.name}" (${data.code}) has been updated successfully.`, 'success');
+        }
+      } catch (err) {
+        Swal.fire('Update Error', err.message || 'Could not save employee profile.', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = origBtnHtml;
       }
     }
 
     function fetchEmpData() {
       const code = document.getElementById('editEmpSelect').value;
-      const emp = appData.emps.find(i => i.code === code);
+      const emp = appData.emps.find(i => String(i.code).trim() === String(code).trim() || String(i._docId).trim() === String(code).trim());
       if (emp) {
         document.getElementById('editFields').style.display = 'flex';
         document.getElementById('statusContainer').style.display = 'block';
-        let frm = document.getElementById('formEdit');
-        let dParts = emp.dept ? emp.dept.split(' > ') : [""];
+        document.getElementById('originalDocId').value = emp._docId || emp.code;
+        document.getElementById('originalEmpCode').value = emp.code;
 
+        let frm = document.getElementById('formEdit');
+        let dParts = emp.dept ? String(emp.dept).split(' > ') : [""];
+        let mainD = (dParts[0] || '').trim();
+        let subD = dParts.length > 1 ? dParts[1].trim() : '';
+
+        document.getElementById('editCodeInput').value = emp.code || '';
         frm.name.value = emp.name || '';
         frm.fatherName.value = emp.fatherName || '';
         frm.nrc.value = emp.nrc || '';
@@ -1560,10 +1735,12 @@
         frm.insValidDate.value = emp.insValidDate || '';
         frm.address.value = emp.address || '';
         frm.bio.value = emp.bio || '';
-        frm.dept.value = dParts[0].trim();
+
+        ensureSelectOption(frm.dept, mainD);
         updateSubAndPos(frm.dept, 'edit');
-        if (dParts.length > 1 && frm.subDept) frm.subDept.value = dParts[1].trim();
-        frm.position.value = emp.position || '';
+        if (subD && frm.subDept) ensureSelectOption(frm.subDept, subD);
+        if (emp.position && frm.position) ensureSelectOption(frm.position, emp.position);
+
         frm.phone.value = emp.phone || '';
         frm.email.value = emp.email || '';
         frm.remark.value = emp.remark || '';
