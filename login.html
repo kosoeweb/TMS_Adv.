@@ -14,7 +14,7 @@
   <link rel="manifest" href="manifest.json">
 
   <script>
-    // Instant Auto-Login Check (Runs before page renders so reopening the app goes straight to portal.html)
+    // Instant Auto-Login Check (0 Firestore Reads if already signed in)
     (function checkPersistentLogin() {
       var params = new URLSearchParams(window.location.search);
       if (params.get('logout') === '1') return;
@@ -163,7 +163,7 @@
 <body>
 
   <div class="mb-3">
-    <span id="connBadge" class="badge bg-secondary status-pill">Connecting...</span>
+    <span id="connBadge" class="badge bg-success status-pill"><i class="bi bi-shield-check"></i> System Ready</span>
   </div>
 
   <div class="login-card">
@@ -221,9 +221,7 @@
     db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
 
     let cachedEmps = [];
-    let isFallbackRunning = false;
 
-    // Save login session to both localStorage and a 1-year Cookie so closing the app never logs out
     function savePersistentSession(empObj) {
       var cleanCode = String(empObj.code || '').trim();
       try {
@@ -245,12 +243,6 @@
       }
     }
 
-    function updateBadge(count) {
-      var badge = document.getElementById('connBadge');
-      badge.className = 'badge bg-success status-pill';
-      badge.innerHTML = '<i class="bi bi-wifi"></i> Connected (' + count + ' Users)';
-    }
-
     function parseRestVal(v) {
       if (!v || typeof v !== 'object') return v;
       if (v.stringValue !== undefined) return v.stringValue;
@@ -268,49 +260,44 @@
       return '';
     }
 
-    async function fetchEmployeesFallback() {
-      if (isFallbackRunning || cachedEmps.length > 0) return;
-      isFallbackRunning = true;
+    // Only fetches employees when Log In is clicked (Saves 100% of idle page-load reads)
+    async function fetchEmployeesOnDemand() {
+      if (cachedEmps.length > 0) return cachedEmps;
+
       try {
-        var url = "https://firestore.googleapis.com/v1/projects/my-apps-a87a3/databases/(default)/documents/employees?key=" + firebaseConfig.apiKey;
-        var res = await fetch(url);
-        if (res.ok) {
-          var data = await res.json();
-          var list = (data.documents || []).map(function(doc) {
-            var obj = { docId: doc.name ? doc.name.split('/').pop() : '' };
-            var fields = doc.fields || {};
-            Object.keys(fields).forEach(function(k) { obj[k] = parseRestVal(fields[k]); });
-            if (!obj.code && obj.docId) obj.code = obj.docId;
-            return obj;
+        var sdkPromise = db.collection('employees').get();
+        var timeoutPromise = new Promise(function(_, reject) {
+          setTimeout(function() { reject(new Error("TIMEOUT")); }, 4500);
+        });
+        var snap = await Promise.race([sdkPromise, timeoutPromise]);
+        if (!snap.empty) {
+          cachedEmps = snap.docs.map(function(doc) {
+            var d = doc.data();
+            if (!d.code) d.code = doc.id;
+            return d;
           });
-          if (list.length > 0) {
-            cachedEmps = list;
-            updateBadge(list.length);
-          }
+          return cachedEmps;
         }
       } catch (e) {}
-      isFallbackRunning = false;
-    }
 
-    db.collection('employees').onSnapshot(function(snap) {
-      var list = snap.docs.map(function(d) {
-        var data = d.data();
-        if (!data.code) data.code = d.id;
-        return data;
-      });
-      if (list.length > 0) {
-        cachedEmps = list;
-        updateBadge(list.length);
-      } else {
-        fetchEmployeesFallback();
+      var url = "https://firestore.googleapis.com/v1/projects/my-apps-a87a3/databases/(default)/documents/employees?key=" + firebaseConfig.apiKey;
+      var res = await fetch(url);
+      if (!res.ok) {
+        if (res.status === 429) {
+          throw new Error("Daily database free quota exceeded. Quota resets at 2:30 PM Myanmar Time.");
+        }
+        throw new Error("Connection error (HTTP " + res.status + ")");
       }
-    }, function() {
-      fetchEmployeesFallback();
-    });
-
-    setTimeout(function() {
-      if (cachedEmps.length === 0) fetchEmployeesFallback();
-    }, 3500);
+      var data = await res.json();
+      cachedEmps = (data.documents || []).map(function(doc) {
+        var obj = { docId: doc.name ? doc.name.split('/').pop() : '' };
+        var fields = doc.fields || {};
+        Object.keys(fields).forEach(function(k) { obj[k] = parseRestVal(fields[k]); });
+        if (!obj.code && obj.docId) obj.code = obj.docId;
+        return obj;
+      });
+      return cachedEmps;
+    }
 
     function findMatchingUser(list, inputUser) {
       var target = String(inputUser || '').trim().toLowerCase();
@@ -335,23 +322,19 @@
       var u = document.getElementById('loginUser').value.trim();
       var p = document.getElementById('loginPass').value.trim();
       var btn = document.getElementById('btnLogin');
+      var badge = document.getElementById('connBadge');
+
       btn.disabled = true;
       btn.innerText = "Signing In...";
+      badge.className = 'badge bg-warning text-dark status-pill';
+      badge.innerHTML = '<i class="bi bi-arrow-repeat"></i> Verifying...';
 
       try {
-        if (cachedEmps.length === 0) {
-          await fetchEmployeesFallback();
-        }
-        if (cachedEmps.length === 0) {
-          var snap = await db.collection('employees').get();
-          cachedEmps = snap.docs.map(function(doc) {
-            var d = doc.data();
-            if (!d.code) d.code = doc.id;
-            return d;
-          });
-        }
+        var list = await fetchEmployeesOnDemand();
+        var userRecord = findMatchingUser(list, u);
 
-        var userRecord = findMatchingUser(cachedEmps, u);
+        badge.className = 'badge bg-success status-pill';
+        badge.innerHTML = '<i class="bi bi-wifi"></i> Connected';
 
         if (!userRecord) {
           Swal.fire({
@@ -387,6 +370,8 @@
         window.location.replace('portal.html');
 
       } catch (err) {
+        badge.className = 'badge bg-danger status-pill';
+        badge.innerHTML = '<i class="bi bi-exclamation-circle"></i> Error';
         Swal.fire({
           title: 'Connection Error',
           text: err.message,
