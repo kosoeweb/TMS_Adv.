@@ -182,7 +182,6 @@
   messagingSenderId: "1032960934679",
   appId: "1:1032960934679:web:60a32de5f3d1e33532ad52"
 };
-
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
@@ -202,7 +201,18 @@
       return code;
     }
 
-    const loggedEmpCode = getPersistentEmpCode();
+    function updatePersistentSession(empObj) {
+      var cleanCode = String(empObj.code || '').trim();
+      loggedEmpCode = cleanCode;
+      currentEmp = empObj;
+      try {
+        localStorage.setItem('ut_emp_code', cleanCode);
+        localStorage.setItem('ut_emp_profile', JSON.stringify(empObj));
+      } catch (e) {}
+      document.cookie = "ut_emp_code=" + encodeURIComponent(cleanCode) + "; path=/; max-age=31536000; SameSite=Lax";
+    }
+
+    let loggedEmpCode = getPersistentEmpCode();
     if (!loggedEmpCode) {
       window.location.replace('login.html');
     }
@@ -221,7 +231,7 @@
     let attLoaded = false, examsLoaded = false, resultsLoaded = false, lastPopupKey = '';
     let cLat = 0, cLng = 0, cDist = 0, hasGeoFix = false, isGeoOK = false;
 
-    const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes smart cache for static settings
+    const CACHE_TTL_MS = 30 * 60 * 1000;
 
     const defaultAttendanceRules = [
       { action_type: 'Check-In', min_mins: -999, max_mins: 5, subcategory: 'On Time', color_class: 'text-success', show_mins: false },
@@ -291,7 +301,6 @@
       return fields;
     }
 
-    // Targeted Query by Field (Uses SDK .where() first, falls back to REST :runQuery so it NEVER scans whole collection)
     async function queryByFieldSmart(colName, fieldName, fieldVal) {
       try {
         var sdkPromise = db.collection(colName).where(fieldName, '==', fieldVal).get();
@@ -301,7 +310,7 @@
         var snap = await Promise.race([sdkPromise, timeoutPromise]);
         return snap.docs.map(function(d) { return { docId: d.id, ...d.data() }; });
       } catch (err) {
-        var url = "https://firestore.googleapis.com/v1/projects/my-apps-a87a3/databases/(default)/documents:runQuery?key=" + firebaseConfig.apiKey;
+        var url = "https://firestore.googleapis.com/v1/projects/" + firebaseConfig.projectId + "/databases/(default)/documents:runQuery?key=" + firebaseConfig.apiKey;
         var body = {
           structuredQuery: {
             from: [{ collectionId: colName }],
@@ -325,28 +334,68 @@
       }
     }
 
-    async function fetchSingleEmployeeSmart(empCode) {
+    // Verifies Employee ID against database; if Employee ID was changed by Admin, auto-migrates session by username/name
+    async function verifyAndSyncEmployeeProfile(empCode) {
+      // 1. Try direct Doc ID lookup
       try {
         var sdkPromise = db.collection('employees').doc(empCode).get();
         var timeoutPromise = new Promise(function(_, reject) {
           setTimeout(function() { reject(new Error("TIMEOUT")); }, 4000);
         });
         var doc = await Promise.race([sdkPromise, timeoutPromise]);
-        if (doc.exists) return { code: doc.id, ...doc.data() };
+        if (doc.exists) {
+          var d = doc.data();
+          return Object.assign({}, d, { code: String(d.code || doc.id).trim() });
+        }
       } catch (e) {}
 
-      var url = "https://firestore.googleapis.com/v1/projects/my-apps-a87a3/databases/(default)/documents/employees/" + encodeURIComponent(empCode) + "?key=" + firebaseConfig.apiKey;
-      var res = await fetch(url);
-      if (res.ok) {
-        var d = await res.json();
-        if (d && d.fields) {
-          var parsed = parseRestDoc(d);
-          if (!parsed.code) parsed.code = parsed.docId;
-          return parsed;
+      // 2. Try REST Doc ID lookup
+      try {
+        var url = "https://firestore.googleapis.com/v1/projects/" + firebaseConfig.projectId + "/databases/(default)/documents/employees/" + encodeURIComponent(empCode) + "?key=" + firebaseConfig.apiKey;
+        var res = await fetch(url);
+        if (res.ok) {
+          var dRest = await res.json();
+          if (dRest && dRest.fields) {
+            var parsed = parseRestDoc(dRest);
+            parsed.code = String(parsed.code || parsed.docId).trim();
+            return parsed;
+          }
         }
+      } catch (e) {}
+
+      // 3. Try querying by 'code' field
+      try {
+        var byCode = await queryByFieldSmart('employees', 'code', empCode);
+        if (byCode.length > 0) {
+          var found = byCode[0];
+          found.code = String(found.code || found.docId).trim();
+          return found;
+        }
+      } catch (e) {}
+
+      // 4. If old Employee ID no longer exists, try auto-matching by cached username or name!
+      if (currentEmp && (currentEmp.username || currentEmp.name)) {
+        try {
+          if (currentEmp.username) {
+            var byUser = await queryByFieldSmart('employees', 'username', String(currentEmp.username).trim());
+            if (byUser.length > 0) {
+              var uMatch = byUser[0];
+              uMatch.code = String(uMatch.code || uMatch.docId).trim();
+              return uMatch;
+            }
+          }
+          if (currentEmp.name) {
+            var byName = await queryByFieldSmart('employees', 'name', String(currentEmp.name).trim());
+            if (byName.length > 0) {
+              var nMatch = byName[0];
+              nMatch.code = String(nMatch.code || nMatch.docId).trim();
+              return nMatch;
+            }
+          }
+        } catch (e) {}
       }
-      var list = await queryByFieldSmart('employees', 'code', empCode);
-      return list[0] || null;
+
+      return null;
     }
 
     async function fetchSettingsSmart(forceRefresh = false) {
@@ -364,7 +413,7 @@
         setSmartCache('ut_cache_settings', list);
         return list;
       } catch (e) {
-        var url = "https://firestore.googleapis.com/v1/projects/my-apps-a87a3/databases/(default)/documents/tms_settings?key=" + firebaseConfig.apiKey;
+        var url = "https://firestore.googleapis.com/v1/projects/" + firebaseConfig.projectId + "/databases/(default)/documents/tms_settings?key=" + firebaseConfig.apiKey;
         var res = await fetch(url);
         if (res.ok) {
           var data = await res.json();
@@ -384,7 +433,7 @@
         });
         await Promise.race([sdkPromise, timeoutPromise]);
       } catch (err) {
-        var url = "https://firestore.googleapis.com/v1/projects/my-apps-a87a3/databases/(default)/documents/" + colName + "?key=" + firebaseConfig.apiKey;
+        var url = "https://firestore.googleapis.com/v1/projects/" + firebaseConfig.projectId + "/databases/(default)/documents/" + colName + "?key=" + firebaseConfig.apiKey;
         var res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -408,25 +457,38 @@
       evaluateAttendanceState(false);
     }
 
-    // Main Quota-Saving Loader (Reads ONLY current employee's records!)
     async function loadPortalData(forceRefresh = false) {
       updateStatusBadge(true, true);
       try {
-        // 1. Load Profile (Cached or 1 Read)
-        if (forceRefresh || !currentEmp) {
-          const freshEmp = await fetchSingleEmployeeSmart(loggedEmpCode);
-          if (freshEmp) {
-            currentEmp = freshEmp;
-            try { localStorage.setItem('ut_emp_profile', JSON.stringify(freshEmp)); } catch (e) {}
-            renderProfileCard(currentEmp);
-          }
+        // 1. Always verify Employee Profile so old Employee Codes (like "UMW") are auto-updated or forced to re-login
+        const verifiedEmp = await verifyAndSyncEmployeeProfile(loggedEmpCode);
+
+        if (!verifiedEmp || !verifiedEmp.name) {
+          // Old invalid code with no matching employee in database -> Force clean re-login!
+          await Swal.fire({
+            title: 'Employee ID Updated',
+            text: 'Your Employee ID was updated by HR. Please sign in again with your username and password.',
+            icon: 'info',
+            confirmButtonColor: '#601a1a'
+          });
+          logoutEmp();
+          return;
         }
 
-        // 2. Load Settings (Cached for 30 mins = 0 Reads on reload)
+        if (verifiedEmp.status === 'Inactive') {
+          logoutEmp();
+          return;
+        }
+
+        // Update session with verified new Employee Code & Name
+        updatePersistentSession(verifiedEmp);
+        renderProfileCard(currentEmp);
+
+        // 2. Load Settings (Cached for 30 mins)
         const settingsList = await fetchSettingsSmart(forceRefresh);
         applySettingsData(settingsList);
 
-        // 3. Load Active Exams (Cached for 30 mins = 0 Reads on reload)
+        // 3. Load Active Exams (Cached for 30 mins)
         let activeExams = !forceRefresh ? getSmartCache('ut_cache_active_exams') : null;
         if (!activeExams) {
           activeExams = await queryByFieldSmart('tms_exams', 'status', 'Active');
@@ -435,7 +497,7 @@
         allExams = activeExams;
         examsLoaded = true;
 
-        // 4. Load ONLY this employee's Attendance, Leave, HR Records, and Exam Results
+        // 4. Load ONLY this employee's Attendance, Leave, HR Records, and Exam Results using verified code
         const empCacheKey = 'ut_cache_emp_records_' + loggedEmpCode.toUpperCase();
         const cachedRecords = !forceRefresh ? getSmartCache(empCacheKey) : null;
 
@@ -475,7 +537,6 @@
         renderMyLedger();
 
       } catch (err) {
-        // Fallback to last known cache if daily quota is temporarily exhausted
         const empCacheKey = 'ut_cache_emp_records_' + loggedEmpCode.toUpperCase();
         const fallbackRecs = getSmartCache(empCacheKey, true);
         if (fallbackRecs) {
@@ -667,7 +728,7 @@
     }
 
     window.onload = () => {
-      if (currentEmp) renderProfileCard(currentEmp);
+      if (currentEmp && currentEmp.name) renderProfileCard(currentEmp);
       evaluateAttendanceState(true);
       loadPortalData(false);
     };
@@ -733,8 +794,10 @@
 
       if (isGeoOK) {
         document.getElementById('geoStat').innerHTML = `<span class="text-success fw-bold"><i class="bi bi-check-circle-fill"></i> Inside Zone (${Math.round(cDist)}m)</span>`;
-        if (!status.in) btnIn.disabled = false;
-        if (status.in && !status.out) btnOut.disabled = false;
+        if (currentEmp && currentEmp.name) {
+          if (!status.in) btnIn.disabled = false;
+          if (status.in && !status.out) btnOut.disabled = false;
+        }
       } else {
         document.getElementById('geoStat').innerHTML = `<span class="text-danger fw-bold"><i class="bi bi-x-circle-fill"></i> Outside Zone (${Math.round(cDist)}m)</span>`;
       }
@@ -751,6 +814,18 @@
 
     async function submitAtt(type) {
       if (!isGeoOK) return Swal.fire("Error", "You must be inside the office zone.", "error");
+
+      // Prevent submitting if profile or name is missing
+      if (!currentEmp || !currentEmp.code || !currentEmp.name) {
+        const verified = await verifyAndSyncEmployeeProfile(loggedEmpCode);
+        if (!verified || !verified.name) {
+          await Swal.fire("Session Expired", "Your Employee ID was updated. Please sign in again.", "warning");
+          logoutEmp();
+          return;
+        }
+        updatePersistentSession(verified);
+        renderProfileCard(currentEmp);
+      }
 
       const currentStatus = getTodayAttendanceStatus();
       if (type === 'Check-In' && currentStatus.in) {
@@ -775,8 +850,8 @@
       let payload = {
         date_str: todayStr,
         time_str: new Date().toTimeString().slice(0, 8),
-        emp_code: currentEmp ? String(currentEmp.code).trim() : loggedEmpCode,
-        emp_name: currentEmp ? currentEmp.name : '',
+        emp_code: String(currentEmp.code).trim(),
+        emp_name: String(currentEmp.name).trim(),
         type: type,
         location: `${cLat}, ${cLng}`,
         geo_status: "Inside Zone",
@@ -955,6 +1030,16 @@
 
       if (!type || !start || !days) return Swal.fire("Incomplete", "Please fill in all required fields.", "warning");
 
+      if (!currentEmp || !currentEmp.code || !currentEmp.name) {
+        const verified = await verifyAndSyncEmployeeProfile(loggedEmpCode);
+        if (!verified || !verified.name) {
+          await Swal.fire("Session Expired", "Your Employee ID was updated. Please sign in again.", "warning");
+          logoutEmp();
+          return;
+        }
+        updatePersistentSession(verified);
+      }
+
       const btn = document.getElementById('btnLeave');
       const origHtml = btn.innerHTML;
       btn.disabled = true;
@@ -963,8 +1048,8 @@
 
       let payload = {
         apply_date: getTodayStr(),
-        emp_code: currentEmp ? String(currentEmp.code).trim() : loggedEmpCode,
-        emp_name: currentEmp ? currentEmp.name : '',
+        emp_code: String(currentEmp.code).trim(),
+        emp_name: String(currentEmp.name).trim(),
         leave_type: type,
         start_date: start,
         end_date: document.getElementById('lEnd').value,
