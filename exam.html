@@ -149,7 +149,7 @@
         </div>
       </a>
       <div class="d-flex align-items-center gap-2">
-        <span id="connStatus" class="badge bg-secondary"><i class="bi bi-arrow-repeat"></i> Connecting...</span>
+        <span id="connStatus" class="badge bg-success"><i class="bi bi-wifi"></i> Live</span>
         <a href="portal.html" class="btn btn-outline-light btn-sm"><i class="bi bi-person-badge"></i> Employee Portal</a>
       </div>
     </div>
@@ -163,7 +163,7 @@
         <div>
           <span class="badge bg-warning text-dark mb-2" id="bannerExamId">ASSESSMENT PORTAL</span>
           <h3 class="fw-bold mb-1" id="bannerExamTitle">Loading Assessment...</h3>
-          <p class="mb-0 text-white-50 small" id="bannerExamMeta">Please verify your identity below to begin.</p>
+          <p class="mb-0 text-white-50 small" id="bannerExamMeta">Connecting to assessment server...</p>
         </div>
         <div class="bg-white text-dark rounded-3 p-3 shadow-sm" style="min-width: 250px;">
           <div class="small text-muted fw-bold">CANDIDATE PROFILE</div>
@@ -282,37 +282,43 @@
   </div>
 
   <script>
-    // Clear any old Service Workers so mobile requests are never intercepted
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(regs) {
-        regs.forEach(function(r) { r.unregister(); });
-      }).catch(function() {});
-    }
-
-    const PROJECT_ID = "my-apps-a87a3";
-    const API_KEY = "AIzaSyCnQcsv8TekFkOyOPnb3UWZytPq7zBxLfI";
     const firebaseConfig = {
-  apiKey: "AIzaSyCiI78VStxxbhAO1WixiKra4r8ggIl6cxI",
-  authDomain: "tms-adv.firebaseapp.com",
-  projectId: "tms-adv",
-  storageBucket: "tms-adv.firebasestorage.app",
-  messagingSenderId: "1032960934679",
-  appId: "1:1032960934679:web:60a32de5f3d1e33532ad52"
-};
-
-
-    let db = null;
-    try {
-      if (typeof firebase !== 'undefined') {
-        firebase.initializeApp(firebaseConfig);
-        db = firebase.firestore();
-        db.settings({ experimentalAutoDetectLongPolling: true });
-      }
-    } catch (e) {}
+      apiKey: "AIzaSyCnQcsv8TekFkOyOPnb3UWZytPq7zBxLfI",
+      authDomain: "my-apps-a87a3.firebaseapp.com",
+      projectId: "my-apps-a87a3",
+      storageBucket: "my-apps-a87a3.firebasestorage.app",
+      messagingSenderId: "880270085984",
+      appId: "1:880270085984:web:d65a0c381172def3af1805"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    db.settings({ experimentalAutoDetectLongPolling: true });
 
     const urlParams = new URLSearchParams(window.location.search);
     let targetExamId = (urlParams.get('exam_id') || '').trim();
     let resultDocIdParam = (urlParams.get('result_id') || '').trim();
+
+    function getPersistentEmpCode() {
+      var code = '';
+      try { code = (localStorage.getItem('ut_emp_code') || '').trim(); } catch (e) {}
+      if (!code) {
+        var match = document.cookie.match(/(?:^|;\s*)ut_emp_code=([^;]*)/);
+        if (match && match[1]) {
+          code = decodeURIComponent(match[1]).trim();
+          try { localStorage.setItem('ut_emp_code', code); } catch (e) {}
+        }
+      }
+      return code;
+    }
+
+    function savePersistentSession(empObj) {
+      var cleanCode = String(empObj.code || '').trim();
+      try {
+        localStorage.setItem('ut_emp_code', cleanCode);
+        localStorage.setItem('ut_emp_profile', JSON.stringify(empObj));
+      } catch (e) {}
+      document.cookie = "ut_emp_code=" + encodeURIComponent(cleanCode) + "; path=/; max-age=31536000; SameSite=Lax";
+    }
 
     let currentEmp = null;
     try {
@@ -325,21 +331,7 @@
     let timerInterval = null;
     let remainingSeconds = 0;
 
-    function updateStatusBadge(isLive = true, isSyncing = false) {
-      const el = document.getElementById('connStatus');
-      if (isSyncing) {
-        el.className = 'badge bg-warning text-dark';
-        el.innerHTML = '<i class="bi bi-cloud-arrow-up"></i> Syncing...';
-      } else if (isLive && navigator.onLine) {
-        el.className = 'badge bg-success';
-        el.innerHTML = '<i class="bi bi-wifi"></i> Live';
-      } else {
-        el.className = 'badge bg-secondary';
-        el.innerHTML = '<i class="bi bi-wifi-off"></i> Offline';
-      }
-    }
-
-    // ==================== FIRESTORE REST API BRIDGE FOR MOBILE ====================
+    // ==================== FIRESTORE REST & SDK HELPERS (USES DYNAMIC PROJECT ID) ====================
     function parseRestVal(v) {
       if (!v || typeof v !== 'object') return v;
       if (v.stringValue !== undefined) return v.stringValue;
@@ -381,38 +373,93 @@
       return fields;
     }
 
-    async function fetchCollectionRest(colName) {
-      var url = "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID + "/databases/(default)/documents/" + colName + "?pageSize=500&key=" + API_KEY;
-      var res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) throw new Error("HTTP " + res.status);
+    async function getSingleDocSmart(colName, docId) {
+      if (!docId) return null;
+      const variants = [...new Set([docId, docId.toUpperCase()])];
+
+      for (const id of variants) {
+        try {
+          var sdkP = db.collection(colName).doc(id).get();
+          var timeP = new Promise((_, rej) => setTimeout(() => rej(new Error("TIMEOUT")), 6000));
+          var doc = await Promise.race([sdkP, timeP]);
+          if (doc && doc.exists) {
+            return Object.assign({ docId: doc.id }, doc.data());
+          }
+        } catch (e) {}
+
+        try {
+          var url = "https://firestore.googleapis.com/v1/projects/" + firebaseConfig.projectId + "/databases/(default)/documents/" + colName + "/" + encodeURIComponent(id) + "?key=" + firebaseConfig.apiKey;
+          var res = await fetch(url);
+          if (res.ok) {
+            var d = await res.json();
+            if (d && d.fields) return parseRestDoc(d);
+          }
+        } catch (e) {}
+      }
+      return null;
+    }
+
+    async function queryByFieldSmart(colName, fieldName, fieldVal) {
+      try {
+        var sdkPromise = db.collection(colName).where(fieldName, '==', fieldVal).get();
+        var timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), 6000));
+        var snap = await Promise.race([sdkPromise, timeoutPromise]);
+        return snap.docs.map(d => Object.assign({ docId: d.id }, d.data()));
+      } catch (err) {
+        var url = "https://firestore.googleapis.com/v1/projects/" + firebaseConfig.projectId + "/databases/(default)/documents:runQuery?key=" + firebaseConfig.apiKey;
+        var body = {
+          structuredQuery: {
+            from: [{ collectionId: colName }],
+            where: {
+              fieldFilter: {
+                field: { fieldPath: fieldName },
+                op: "EQUAL",
+                value: { stringValue: String(fieldVal) }
+              }
+            }
+          }
+        };
+        var res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        var rows = await res.json();
+        return (rows || []).filter(r => r.document).map(r => parseRestDoc(r.document));
+      }
+    }
+
+    async function getCollectionSmart(colName) {
+      try {
+        var sdkPromise = db.collection(colName).get();
+        var timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), 8000));
+        var snap = await Promise.race([sdkPromise, timeoutPromise]);
+        if (!snap.empty) {
+          return snap.docs.map(d => Object.assign({ docId: d.id }, d.data()));
+        }
+      } catch (e) {}
+
+      var url = "https://firestore.googleapis.com/v1/projects/" + firebaseConfig.projectId + "/databases/(default)/documents/" + colName + "?pageSize=500&key=" + firebaseConfig.apiKey;
+      var res = await fetch(url);
+      if (!res.ok) throw new Error("Database connection error (HTTP " + res.status + ")");
       var data = await res.json();
-      updateStatusBadge(true, false);
       return (data.documents || []).map(parseRestDoc);
     }
 
-    async function fetchSingleDocRest(colName, docId) {
-      var url = "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID + "/databases/(default)/documents/" + colName + "/" + encodeURIComponent(docId) + "?key=" + API_KEY;
-      var res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) return null;
-      var doc = await res.json();
-      updateStatusBadge(true, false);
-      return doc && doc.fields ? parseRestDoc(doc) : null;
-    }
-
-    // Write directly via HTTPS REST POST first so mobile submissions never hang
-    async function saveDocumentDirectRest(colName, payload) {
-      var url = "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID + "/databases/(default)/documents/" + colName + "?key=" + API_KEY;
-      var res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fields: toRestFields(payload) })
-      });
-      if (!res.ok) {
-        if (db) {
-          await db.collection(colName).add(payload);
-          return;
-        }
-        throw new Error("Failed to save result to database (HTTP " + res.status + ")");
+    async function saveRecordReliable(colName, payload) {
+      try {
+        var sdkPromise = db.collection(colName).add(payload);
+        var timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), 6000));
+        await Promise.race([sdkPromise, timeoutPromise]);
+      } catch (err) {
+        var url = "https://firestore.googleapis.com/v1/projects/" + firebaseConfig.projectId + "/databases/(default)/documents/" + colName + "?key=" + firebaseConfig.apiKey;
+        var res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fields: toRestFields(payload) })
+        });
+        if (!res.ok) throw new Error("Failed to save result (HTTP " + res.status + ")");
       }
     }
 
@@ -435,44 +482,31 @@
     window.onload = async function() {
       preloadLogoBase64();
 
-      // 1. Direct Result View by result_id (from Dashboard)
+      // 1. Direct Result View by result_id
       if (resultDocIdParam) {
-        try {
-          let rData = await fetchSingleDocRest('exam_results', resultDocIdParam);
-          if (!rData && db) {
-            const rDoc = await db.collection('exam_results').doc(resultDocIdParam).get();
-            if (rDoc.exists) rData = rDoc.data();
-          }
-          if (rData) {
-            renderResultSheet(rData);
-            return;
-          }
-        } catch (e) {}
+        const matched = await getSingleDocSmart('exam_results', resultDocIdParam);
+        if (matched) {
+          renderResultSheet(matched);
+          return;
+        }
       }
 
       // 2. Check Logged-in Candidate
-      const savedCode = (localStorage.getItem('ut_emp_code') || '').trim();
+      const savedCode = getPersistentEmpCode();
       if (savedCode) {
         if (currentEmp && String(currentEmp.code).trim().toUpperCase() === savedCode.toUpperCase()) {
           updateCandidateBanner();
+          await loadExamFlow();
+          return;
         }
-        try {
-          const emps = await fetchCollectionRest('employees');
-          const found = emps.find(e => String(e.code || e.docId).trim().toUpperCase() === savedCode.toUpperCase());
-          if (found && found.status !== 'Inactive') {
-            if (!found.code) found.code = found.docId;
-            currentEmp = found;
-            localStorage.setItem('ut_emp_profile', JSON.stringify(found));
-            updateCandidateBanner();
-            await loadExamFlow();
-            return;
-          }
-        } catch (err) {
-          if (currentEmp) {
-            updateCandidateBanner();
-            await loadExamFlow();
-            return;
-          }
+        const found = await getSingleDocSmart('employees', savedCode);
+        if (found && found.status !== 'Inactive') {
+          if (!found.code) found.code = found.docId;
+          currentEmp = found;
+          savePersistentSession(found);
+          updateCandidateBanner();
+          await loadExamFlow();
+          return;
         }
       }
 
@@ -494,16 +528,7 @@
       btn.innerText = 'Verifying...';
 
       try {
-        let emps = [];
-        try {
-          emps = await fetchCollectionRest('employees');
-        } catch (restErr) {
-          if (db) {
-            const snap = await db.collection('employees').get();
-            emps = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
-          }
-        }
-
+        const emps = await getCollectionSmart('employees');
         const emp = emps.find(item => {
           const uName = String(item.username || '').trim().toLowerCase();
           const eCode = String(item.code || item.docId || '').trim().toLowerCase();
@@ -522,8 +547,7 @@
 
         if (!emp.code) emp.code = emp.docId;
         currentEmp = emp;
-        localStorage.setItem('ut_emp_code', String(emp.code).trim());
-        localStorage.setItem('ut_emp_profile', JSON.stringify(emp));
+        savePersistentSession(emp);
         document.getElementById('quickLoginBox').style.display = 'none';
         updateCandidateBanner();
         await loadExamFlow();
@@ -544,104 +568,126 @@
     }
 
     async function loadExamFlow() {
-      let allResults = [];
       try {
-        allResults = await fetchCollectionRest('exam_results');
-      } catch (e) {
-        if (db) {
-          const resSnap = await db.collection('exam_results').get();
-          allResults = resSnap.docs.map(d => d.data());
-        }
-      }
-
-      const myResults = allResults.filter(
-        r => String(r.emp_code || '').trim().toUpperCase() === String(currentEmp.code).trim().toUpperCase()
-      );
-
-      if (!targetExamId) {
-        let allExamsList = [];
+        // Fetch only this candidate's exam results (fast & quota-safe)
+        let myResults = [];
         try {
-          allExamsList = await fetchCollectionRest('tms_exams');
+          myResults = await queryByFieldSmart('exam_results', 'emp_code', String(currentEmp.code).trim());
         } catch (e) {
-          if (db) {
-            const exSnap = await db.collection('tms_exams').get();
-            allExamsList = exSnap.docs.map(d => d.data());
-          }
+          const allRes = await getCollectionSmart('exam_results');
+          myResults = allRes.filter(r => String(r.emp_code || '').trim().toUpperCase() === String(currentEmp.code).trim().toUpperCase());
         }
 
-        document.getElementById('examListBox').style.display = 'block';
-        const listEl = document.getElementById('availableExamsList');
+        // Case A: No exam_id in URL -> show list of assigned exams
+        if (!targetExamId) {
+          const allExamsList = await getCollectionSmart('tms_exams');
+          document.getElementById('bannerExamTitle').innerText = "Available Assessments";
+          document.getElementById('bannerExamMeta').innerText = "Select an assessment below to start or view results.";
+          document.getElementById('examListBox').style.display = 'block';
+          const listEl = document.getElementById('availableExamsList');
 
-        const assignedDocs = allExamsList.filter(
-          ex => String(ex.status || 'Active').toLowerCase() === 'active' && isExamAssignedToCandidate(ex)
-        );
+          const assignedDocs = allExamsList.filter(
+            ex => String(ex.status || 'Active').trim().toLowerCase() === 'active' && isExamAssignedToCandidate(ex)
+          );
 
-        if (assignedDocs.length === 0) {
-          listEl.innerHTML = '<div class="text-muted py-3">No active assessments are currently assigned to you.</div>';
+          if (assignedDocs.length === 0) {
+            listEl.innerHTML = '<div class="text-muted py-3">No active assessments are currently assigned to you.</div>';
+            return;
+          }
+
+          listEl.innerHTML = assignedDocs.map(ex => {
+            const exCode = ex.exam_id || ex.docId;
+            const done = myResults.find(r => String(r.exam_id).trim().toUpperCase() === String(exCode).trim().toUpperCase());
+            const totalMarks = Number(ex.question_count || 20) * Number(ex.points_per_q || 5);
+            return `
+              <div class="card p-3 mb-2 border">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                  <div>
+                    <h6 class="fw-bold text-primary mb-1">${ex.title}</h6>
+                    <div class="small text-muted">ID: ${exCode} | ${ex.question_count} Questions | ${totalMarks} Marks</div>
+                  </div>
+                  ${done
+                    ? `<a href="exam.html?exam_id=${encodeURIComponent(exCode)}" class="btn btn-outline-success btn-sm fw-bold">Completed (${done.score}/${done.total_marks}) - View PDF</a>`
+                    : `<a href="exam.html?exam_id=${encodeURIComponent(exCode)}" class="btn btn-danger btn-sm fw-bold px-3">Take Exam</a>`
+                  }
+                </div>
+              </div>
+            `;
+          }).join('');
           return;
         }
 
-        listEl.innerHTML = assignedDocs.map(ex => {
-          const done = myResults.find(r => String(r.exam_id).trim().toUpperCase() === String(ex.exam_id).trim().toUpperCase());
-          const totalMarks = Number(ex.question_count || 20) * Number(ex.points_per_q || 5);
-          return `
-            <div class="card p-3 mb-2 border">
-              <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <div>
-                  <h6 class="fw-bold text-primary mb-1">${ex.title}</h6>
-                  <div class="small text-muted">ID: ${ex.exam_id} | ${ex.question_count} Questions | ${totalMarks} Marks</div>
-                </div>
-                ${done
-                  ? `<a href="exam.html?exam_id=${encodeURIComponent(ex.exam_id)}" class="btn btn-outline-success btn-sm fw-bold">Completed (${done.score}/${done.total_marks}) - View PDF</a>`
-                  : `<a href="exam.html?exam_id=${encodeURIComponent(ex.exam_id)}" class="btn btn-danger btn-sm fw-bold px-3">Take Exam</a>`
-                }
-              </div>
-            </div>
-          `;
-        }).join('');
-        return;
-      }
+        // Case B: Specific exam_id in URL -> fetch this single exam directly first!
+        const existingRes = myResults.find(r => String(r.exam_id).trim().toUpperCase() === targetExamId.toUpperCase());
+        currentExam = await getSingleDocSmart('tms_exams', targetExamId);
 
-      const existingRes = myResults.find(r => String(r.exam_id).trim().toUpperCase() === targetExamId.toUpperCase());
-
-      let exData = null;
-      try {
-        exData = await fetchSingleDocRest('tms_exams', targetExamId.toUpperCase());
-        if (!exData) {
-          const allExamsList = await fetchCollectionRest('tms_exams');
-          exData = allExamsList.find(x => String(x.exam_id || x.docId).trim().toUpperCase() === targetExamId.toUpperCase());
+        if (!currentExam) {
+          const allExamsList = await getCollectionSmart('tms_exams');
+          currentExam = allExamsList.find(x => String(x.exam_id || x.docId || '').trim().toUpperCase() === targetExamId.toUpperCase());
         }
-      } catch (e) {
-        if (db) {
-          const exDoc = await db.collection('tms_exams').doc(targetExamId.toUpperCase()).get();
-          if (exDoc.exists) exData = exDoc.data();
-        }
-      }
 
-      if (exData) {
-        currentExam = exData;
+        if (currentExam) {
+          if (!currentExam.exam_id) currentExam.exam_id = currentExam.docId || targetExamId.toUpperCase();
+          const totalMarks = Number(currentExam.question_count || 20) * Number(currentExam.points_per_q || 5);
+          document.getElementById('bannerExamId').innerText = `EXAM ID: ${currentExam.exam_id}`;
+          document.getElementById('bannerExamTitle').innerText = currentExam.title;
+          document.getElementById('bannerExamMeta').innerText = `${currentExam.question_count} Questions | ${currentExam.points_per_q} Marks Each | Total: ${totalMarks} Marks | Passing Score: ${currentExam.pass_score}`;
+        }
+
+        if (existingRes) {
+          renderResultSheet(existingRes);
+          return;
+        }
+
+        if (!currentExam) {
+          document.getElementById('bannerExamTitle').innerText = "Assessment Not Found";
+          document.getElementById('bannerExamMeta').innerText = `Exam ID "${targetExamId}" could not be found.`;
+          Swal.fire({
+            title: 'Assessment Not Found',
+            text: `Could not find Exam ID "${targetExamId}" on the server. Please verify the link or check your internet connection.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Retry',
+            cancelButtonText: 'Back to Portal',
+            confirmButtonColor: '#601a1a'
+          }).then(res => {
+            if (res.isConfirmed) window.location.reload();
+            else window.location.href = 'portal.html';
+          });
+          return;
+        }
+
+        if (String(currentExam.status || 'Active').trim().toLowerCase() !== 'active') {
+          Swal.fire({
+            title: 'Assessment Closed',
+            text: `The assessment "${currentExam.title}" is currently marked as Closed.`,
+            icon: 'warning',
+            confirmButtonColor: '#601a1a'
+          });
+          return;
+        }
+
         const totalMarks = Number(currentExam.question_count || 20) * Number(currentExam.points_per_q || 5);
-        document.getElementById('bannerExamId').innerText = `EXAM ID: ${currentExam.exam_id}`;
-        document.getElementById('bannerExamTitle').innerText = currentExam.title;
-        document.getElementById('bannerExamMeta').innerText = `${currentExam.question_count} Questions | ${currentExam.points_per_q} Marks Each | Total: ${totalMarks} Marks | Passing Score: ${currentExam.pass_score}`;
-      }
+        document.getElementById('startConfirmBox').style.display = 'block';
+        document.getElementById('startInstructionText').innerHTML = `
+          This assessment contains <b>${currentExam.question_count} questions</b> worth <b>${currentExam.points_per_q} marks</b> each (Total: <b>${totalMarks} marks</b>).<br>
+          ${currentExam.time_limit > 0 ? `Time Limit: <b>${currentExam.time_limit} minutes</b>.` : 'No time limit.'}
+        `;
 
-      if (existingRes) {
-        renderResultSheet(existingRes);
-        return;
+      } catch (err) {
+        document.getElementById('bannerExamTitle').innerText = "Connection Error";
+        document.getElementById('bannerExamMeta').innerText = err.message;
+        Swal.fire({
+          title: 'Connection Slow / Error',
+          text: err.message,
+          icon: 'error',
+          showCancelButton: true,
+          confirmButtonText: 'Retry Now',
+          confirmButtonColor: '#601a1a'
+        }).then(res => {
+          if (res.isConfirmed) window.location.reload();
+        });
       }
-
-      if (!currentExam || String(currentExam.status || 'Active').toLowerCase() !== 'active') {
-        Swal.fire('Unavailable', 'This assessment is currently closed or does not exist.', 'warning');
-        return;
-      }
-
-      const totalMarks = Number(currentExam.question_count || 20) * Number(currentExam.points_per_q || 5);
-      document.getElementById('startConfirmBox').style.display = 'block';
-      document.getElementById('startInstructionText').innerHTML = `
-        This assessment contains <b>${currentExam.question_count} questions</b> worth <b>${currentExam.points_per_q} marks</b> each (Total: <b>${totalMarks} marks</b>).<br>
-        ${currentExam.time_limit > 0 ? `Time Limit: <b>${currentExam.time_limit} minutes</b>.` : 'No time limit.'}
-      `;
     }
 
     function shuffleArray(arr) {
@@ -758,7 +804,6 @@
       const origHtml = btn.innerHTML;
       btn.disabled = true;
       btn.innerText = "Submitting & Generating Result Sheet...";
-      updateStatusBadge(true, true);
 
       const passed = score >= Number(currentExam.pass_score || 50);
       const nowStr = new Date().toLocaleString('en-GB');
@@ -781,8 +826,11 @@
       };
 
       try {
-        await saveDocumentDirectRest('exam_results', resultPayload);
-        updateStatusBadge(true, false);
+        await saveRecordReliable('exam_results', resultPayload);
+        try {
+          localStorage.removeItem('ut_cache_emp_records_' + String(currentEmp.code).trim().toUpperCase());
+        } catch (e) {}
+
         renderResultSheet(resultPayload);
         Swal.fire({
           title: passed ? 'Congratulations! You Passed!' : 'Assessment Submitted',
@@ -793,7 +841,6 @@
       } catch (err) {
         btn.disabled = false;
         btn.innerHTML = origHtml;
-        updateStatusBadge(false, false);
         Swal.fire('Submission Error', err.message, 'error');
       }
     }
@@ -889,7 +936,6 @@
       try {
         await html2pdf().set(opt).from(element).save();
       } catch (err) {
-        console.error("PDF generation fallback to print:", err);
         window.print();
       } finally {
         btn.disabled = false;
